@@ -8,10 +8,12 @@ namespace VideoHosting.Application.Services;
 public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
 
-    public UserService(IUserRepository userRepository)
+    public UserService(IUserRepository userRepository, ISubscriptionRepository subscriptionRepository)
     {
         _userRepository = userRepository;
+        _subscriptionRepository = subscriptionRepository;
     }
 
     public async Task<UserDto?> GetUserByIdAsync(Guid id)
@@ -36,6 +38,15 @@ public class UserService : IUserService
     {
         var users = await _userRepository.GetAllAsync();
         return users.Select(MapToDto);
+    }
+    
+    public async Task<IEnumerable<UserDto>> SearchUsersAsync(string searchTerm)
+    {
+        var users = await _userRepository.GetAllAsync();
+        var filteredUsers = users.Where(u => 
+            u.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        return filteredUsers.Select(MapToDto);
     }
 
     public async Task<UserDto> CreateUserAsync(UserDto userDto)
@@ -82,18 +93,70 @@ public class UserService : IUserService
         };
     }
 
-    private User MapToEntity(UserDto userDto)
+private User MapToEntity(UserDto userDto)
     {
         return new User
         {
             Id = userDto.Id,
             Name = userDto.Name,
             Email = userDto.Email,
+            PasswordHash = string.Empty, // PasswordHash не хранится в DTO
             AvatarUrl = userDto.AvatarUrl,
             Description = userDto.Description,
             IsAdmin = userDto.IsAdmin,
             CreatedAt = userDto.CreatedAt,
             UpdatedAt = userDto.UpdatedAt
         };
+    }
+    
+    public async Task<bool> SubscribeAsync(Guid subscriberId, Guid channelId)
+    {
+        // Проверяем, что пользователь не пытается подписаться на самого себя
+        if (subscriberId == channelId)
+        {
+            return false;
+        }
+        
+        // Проверяем, существует ли уже подписка
+        var existingSubscription = await _subscriptionRepository.GetBySubscriberAndChannelAsync(subscriberId, channelId);
+        if (existingSubscription != null)
+        {
+            return false; // Уже подписан
+        }
+        
+        // Создаем новую подписку
+        var subscription = new Subscription
+        {
+            Id = Guid.NewGuid(),
+            SubscriberId = subscriberId,
+            ChannelId = channelId,
+            CreatedAt = DateTime.UtcNow
+        };
+        
+        await _subscriptionRepository.CreateAsync(subscription);
+        return true;
+    }
+    
+    public async Task<bool> UnsubscribeAsync(Guid subscriberId, Guid channelId)
+    {
+        var subscription = await _subscriptionRepository.GetBySubscriberAndChannelAsync(subscriberId, channelId);
+        if (subscription == null)
+        {
+            return false; // Нет подписки
+        }
+        
+        await _subscriptionRepository.DeleteAsync(subscription.Id);
+        return true;
+    }
+    
+    public async Task<bool> IsSubscribedAsync(Guid subscriberId, Guid channelId)
+    {
+        var subscription = await _subscriptionRepository.GetBySubscriberAndChannelAsync(subscriberId, channelId);
+        return subscription != null;
+    }
+    
+    public async Task<int> GetSubscriberCountAsync(Guid channelId)
+    {
+        return await _subscriptionRepository.GetSubscriberCountAsync(channelId);
     }
 }

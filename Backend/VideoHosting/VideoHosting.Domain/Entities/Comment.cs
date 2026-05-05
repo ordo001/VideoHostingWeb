@@ -2,7 +2,7 @@ namespace VideoHosting.Domain.Entities;
 
 public class Comment
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     public string Text { get; set; } = string.Empty;
     public int Likes { get; set; }
     public DateTime CreatedAt { get; set; }

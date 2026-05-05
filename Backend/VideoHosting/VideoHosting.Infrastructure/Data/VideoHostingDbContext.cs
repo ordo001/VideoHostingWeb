@@ -14,6 +14,7 @@ public class VideoHostingDbContext : DbContext
     public DbSet<Comment> Comments { get; set; } = null!;
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
     public DbSet<VideoReaction> VideoReactions { get; set; } = null!;
+    public DbSet<AdminActionLog> AdminActionLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,8 +89,8 @@ public class VideoHostingDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.UserId, e.VideoId }).IsUnique();
-            entity.Property(e => e.ReactionType).HasMaxLength(10);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW()");
             
             entity.HasOne(vr => vr.User)
                 .WithMany(u => u.VideoReactions)
@@ -99,6 +100,21 @@ public class VideoHostingDbContext : DbContext
             entity.HasOne(vr => vr.Video)
                 .WithMany(v => v.VideoReactions)
                 .HasForeignKey(vr => vr.VideoId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        // AdminActionLog entity configuration
+        modelBuilder.Entity<AdminActionLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Action).HasMaxLength(100);
+            entity.Property(e => e.TargetType).HasMaxLength(50);
+            entity.Property(e => e.Reason).HasMaxLength(500);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
+            
+            entity.HasOne(l => l.AdminUser)
+                .WithMany()
+                .HasForeignKey(l => l.AdminUserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

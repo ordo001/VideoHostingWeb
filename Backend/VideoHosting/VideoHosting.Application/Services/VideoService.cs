@@ -1,6 +1,7 @@
 using VideoHosting.Application.DTOs;
 using VideoHosting.Application.Interfaces;
 using VideoHosting.Domain.Entities;
+using VideoHosting.Domain.Enums;
 using VideoHosting.Domain.Interfaces;
 
 namespace VideoHosting.Application.Services;
@@ -8,18 +9,25 @@ namespace VideoHosting.Application.Services;
 public class VideoService : IVideoService
 {
     private readonly IVideoRepository _videoRepository;
+    private readonly IVideoReactionRepository _videoReactionRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IAdminActionLogRepository _adminActionLogRepository;
     private readonly IMinioService _minioService;
     private readonly IRabbitMqService _rabbitMqService;
+    private static readonly HashSet<string> ValidReactionTypes = new() { "Like", "Dislike" };
 
     public VideoService(
         IVideoRepository videoRepository,
+        IVideoReactionRepository videoReactionRepository,
         IUserRepository userRepository,
+        IAdminActionLogRepository adminActionLogRepository,
         IMinioService minioService,
         IRabbitMqService rabbitMqService)
     {
         _videoRepository = videoRepository;
+        _videoReactionRepository = videoReactionRepository;
         _userRepository = userRepository;
+        _adminActionLogRepository = adminActionLogRepository;
         _minioService = minioService;
         _rabbitMqService = rabbitMqService;
     }
@@ -111,6 +119,26 @@ public class VideoService : IVideoService
 
         await _videoRepository.DeleteAsync(id);
     }
+    
+    public async Task DeleteVideoByAdminAsync(Guid id, Guid adminUserId, string reason)
+    {
+        // Удаляем видео стандартным способом
+        await DeleteVideoAsync(id);
+        
+        // Создаем запись в логе административных действий
+        var log = new AdminActionLog
+        {
+            Id = Guid.NewGuid(),
+            AdminUserId = adminUserId,
+            Action = "DeleteVideo",
+            TargetType = "Video",
+            TargetId = id,
+            Reason = reason,
+            CreatedAt = DateTime.UtcNow
+        };
+        
+        await _adminActionLogRepository.CreateAsync(log);
+    }
 
     private VideoDto MapToDto(Video video, User? user)
     {
@@ -160,5 +188,101 @@ public class VideoService : IVideoService
             CreatedAt = videoDto.CreatedAt,
             UpdatedAt = videoDto.UpdatedAt
         };
+    }
+    
+    public async Task<VideoReactionDto?> GetUserReactionAsync(Guid userId, Guid videoId)
+    {
+        var reaction = await _videoReactionRepository.GetByUserAndVideoAsync(userId, videoId);
+        if (reaction == null)
+            return null;
+
+        return new VideoReactionDto
+        {
+            Id = reaction.Id,
+            UserId = reaction.UserId,
+            VideoId = reaction.VideoId,
+            ReactionType = reaction.ReactionType.ToString(),
+            CreatedAt = reaction.CreatedAt
+        };
+    }
+
+    public async Task AddOrUpdateReactionAsync(Guid userId, Guid videoId, string reactionType)
+    {
+        // Валидация типа реакции
+        if (!ValidReactionTypes.Contains(reactionType))
+            throw new ArgumentException("Invalid reaction type", nameof(reactionType));
+        
+        var existingReaction = await _videoReactionRepository.GetByUserAndVideoAsync(userId, videoId);
+        
+        if (existingReaction != null)
+        {
+            var oldReactionType = existingReaction.ReactionType.ToString();
+            
+            // Если пользователь уже ставил такую же реакцию, ничего не делаем
+            if (oldReactionType == reactionType)
+                return;
+            
+            // Обновляем тип реакции
+            existingReaction.ReactionType = (ReactionType)Enum.Parse(typeof(ReactionType), reactionType);
+            existingReaction.UpdatedAt = DateTime.UtcNow;
+            await _videoReactionRepository.UpdateAsync(existingReaction);
+            
+            // Обновляем счетчики лайков/дизлайков у видео
+            await UpdateVideoReactionCounters(videoId, oldReactionType, reactionType);
+        }
+        else
+        {
+            // Создаем новую реакцию
+            var reaction = new VideoReaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                VideoId = videoId,
+                ReactionType = (ReactionType)Enum.Parse(typeof(ReactionType), reactionType),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            await _videoReactionRepository.CreateAsync(reaction);
+            
+            // Обновляем счетчики лайков/дизлайков у видео
+            await UpdateVideoReactionCounters(videoId, null, reactionType);
+        }
+    }
+
+    public async Task RemoveReactionAsync(Guid userId, Guid videoId)
+    {
+        var existingReaction = await _videoReactionRepository.GetByUserAndVideoAsync(userId, videoId);
+        if (existingReaction != null)
+        {
+            var reactionType = existingReaction.ReactionType.ToString();
+            
+            // Удаляем реакцию
+            await _videoReactionRepository.DeleteAsync(existingReaction.Id);
+            
+            // Обновляем счетчики лайков/дизлайков у видео
+            await UpdateVideoReactionCounters(videoId, reactionType, null);
+        }
+    }
+    
+    private async Task UpdateVideoReactionCounters(Guid videoId, string? oldReactionType, string? newReactionType)
+    {
+        var video = await _videoRepository.GetByIdAsync(videoId);
+        if (video == null)
+            throw new InvalidOperationException("Видео не найдено");
+        
+        // Уменьшаем счетчик старой реакции
+        if (oldReactionType == "Like")
+            video.Likes = Math.Max(0, video.Likes - 1);
+        else if (oldReactionType == "Dislike")
+            video.Dislikes = Math.Max(0, video.Dislikes - 1);
+        
+        // Увеличиваем счетчик новой реакции
+        if (newReactionType == "Like")
+            video.Likes++;
+        else if (newReactionType == "Dislike")
+            video.Dislikes++;
+        
+        await _videoRepository.UpdateAsync(video);
     }
 }

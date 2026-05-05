@@ -12,8 +12,8 @@ using VideoHosting.Infrastructure.Data;
 namespace VideoHosting.Infrastructure.Migrations
 {
     [DbContext(typeof(VideoHostingDbContext))]
-    [Migration("20260503154455_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260505154617_AddAdminActionLog")]
+    partial class AddAdminActionLog
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,45 @@ namespace VideoHosting.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("VideoHosting.Domain.Entities.AdminActionLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("AdminUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminUserId");
+
+                    b.ToTable("AdminActionLogs");
+                });
 
             modelBuilder.Entity("VideoHosting.Domain.Entities.Comment", b =>
                 {
@@ -210,10 +249,13 @@ namespace VideoHosting.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("NOW()");
 
-                    b.Property<string>("ReactionType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                    b.Property<int>("ReactionType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -229,6 +271,17 @@ namespace VideoHosting.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("VideoReactions");
+                });
+
+            modelBuilder.Entity("VideoHosting.Domain.Entities.AdminActionLog", b =>
+                {
+                    b.HasOne("VideoHosting.Domain.Entities.User", "AdminUser")
+                        .WithMany()
+                        .HasForeignKey("AdminUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AdminUser");
                 });
 
             modelBuilder.Entity("VideoHosting.Domain.Entities.Comment", b =>
