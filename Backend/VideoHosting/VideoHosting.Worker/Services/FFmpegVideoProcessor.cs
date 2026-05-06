@@ -1,0 +1,175 @@
+using System.Diagnostics;
+
+namespace VideoHosting.Worker.Services;
+
+public class FFmpegVideoProcessor
+{
+    private readonly string _tempDirectory;
+    
+    public FFmpegVideoProcessor()
+    {
+        _tempDirectory = Path.Combine(Path.GetTempPath(), "video_processing");
+        if (!Directory.Exists(_tempDirectory))
+        {
+            Directory.CreateDirectory(_tempDirectory);
+        }
+    }
+    
+    public async Task<string> DownloadVideoFromMinioAsync(string videoUrl)
+    {
+        // В реальной реализации здесь нужно будет скачать видео из MinIO
+        // Пока что создаем временный файл для демонстрации
+        var tempVideoPath = Path.Combine(_tempDirectory, $"{Guid.NewGuid()}.mp4");
+        
+        // Создаем пустой файл для демонстрации
+        await File.WriteAllTextAsync(tempVideoPath, "temp video content");
+        
+        return tempVideoPath;
+    }
+    
+    public async Task TranscodeToMultipleResolutionsAsync(string inputPath, string outputDirectory, Action<int> onProgress)
+    {
+        var resolutions = new[]
+        {
+            new { Name = "1080p", Width = 1920, Height = 1080, Bitrate = 5000 },
+            new { Name = "720p", Width = 1280, Height = 720, Bitrate = 2800 },
+            new { Name = "480p", Width = 854, Height = 480, Bitrate = 1400 },
+            new { Name = "360p", Width = 640, Height = 360, Bitrate = 800 }
+        };
+        
+        for (int i = 0; i < resolutions.Length; i++)
+        {
+            var resolution = resolutions[i];
+            var outputPath = Path.Combine(outputDirectory, $"stream_{resolution.Name}.m3u8");
+            
+            // Вызываем FFmpeg для транскодирования в нужное разрешение
+            await TranscodeToResolutionAsync(inputPath, outputPath, resolution.Width, resolution.Height, resolution.Bitrate);
+            
+            // Сообщаем о прогрессе
+            onProgress(((i + 1) * 100) / resolutions.Length);
+        }
+    }
+    
+    private async Task TranscodeToResolutionAsync(string inputPath, string outputPath, int width, int height, int bitrate)
+    {
+        try
+        {
+            // Создаем директорию для выходных файлов если она не существует
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+            
+            // Команда FFmpeg для транскодирования с созданием HLS сегментов
+            var arguments = $"-i \"{inputPath}\" " +
+                           $"-vf scale={width}:{height} " +
+                           $"-c:v libx264 " +
+                           $"-preset fast " +
+                           $"-crf 23 " +
+                           $"-maxrate {bitrate}k " +
+                           $"-bufsize {bitrate * 2}k " +
+                           $"-g 60 " +
+                           $"-sc_threshold 0 " +
+                           $"-keyint_min 60 " +
+                           $"-c:a aac " +
+                           $"-b:a 128k " +
+                           $"-f hls " +
+                           $"-hls_time 10 " +
+                           $"-hls_list_size 0 " +
+                           $"-hls_segment_filename \"{Path.Combine(Path.GetDirectoryName(outputPath)!, $"{Path.GetFileNameWithoutExtension(outputPath)}_%05d.ts")}\" " +
+                           $"\"{outputPath}\"";
+            
+            await RunFFmpegCommandAsync(arguments);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Ошибка транскодирования в {width}x{height}: {ex.Message}", ex);
+        }
+    }
+    
+    public void GenerateMasterPlaylist(string outputDirectory, Guid videoId)
+    {
+        var masterPlaylistPath = Path.Combine(outputDirectory, "master.m3u8");
+        var masterPlaylistContent = @"#EXTM3U
+#EXT-X-VERSION:3
+
+#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS=""avc1.42e01e,mp4a.40.2""
+stream_360p.m3u8
+
+#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=854x480,CODECS=""avc1.42e01e,mp4a.40.2""
+stream_480p.m3u8
+
+#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720,CODECS=""avc1.42e01e,mp4a.40.2""
+stream_720p.m3u8
+
+#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS=""avc1.42e01e,mp4a.40.2""
+stream_1080p.m3u8";
+
+        File.WriteAllText(masterPlaylistPath, masterPlaylistContent);
+    }
+    
+    private async Task RunFFmpegCommandAsync(string arguments)
+    {
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = "ffmpeg",
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        
+        using var process = Process.Start(processStartInfo);
+        if (process == null)
+        {
+            throw new InvalidOperationException("Не удалось запустить процесс FFmpeg");
+        }
+        
+        await process.WaitForExitAsync();
+        
+        if (process.ExitCode != 0)
+        {
+            var errorOutput = await process.StandardError.ReadToEndAsync();
+            throw new InvalidOperationException($"FFmpeg завершился с ошибкой: {errorOutput}");
+        }
+    }
+    
+    public async Task UploadHlsFilesToMinioAsync(string videoId, string outputDirectory, Func<string, string, string, Task<string>> uploadFunc)
+    {
+        var files = Directory.GetFiles(outputDirectory, "*.*", SearchOption.AllDirectories);
+        
+        foreach (var file in files)
+        {
+            var relativePath = Path.GetRelativePath(outputDirectory, file);
+            var fileName = Path.GetFileName(file);
+            var contentType = GetContentType(fileName);
+            
+            // Загружаем файл в MinIO
+            await uploadFunc(file, $"{videoId}/{relativePath}", contentType);
+        }
+    }
+    
+    private string GetContentType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        return extension switch
+        {
+            ".m3u8" => "application/vnd.apple.mpegurl",
+            ".ts" => "video/mp2t",
+            _ => "application/octet-stream"
+        };
+    }
+    
+    public void CleanupTempFiles(string tempDirectory)
+    {
+        try
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, true);
+            }
+        }
+        catch
+        {
+            // Игнорируем ошибки очистки
+        }
+    }
+}

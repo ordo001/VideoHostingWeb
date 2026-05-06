@@ -2,7 +2,6 @@
 description: Создает высокопроизводительные SPA (React.js) фронтенд приложения. Специализируется на интуитивном понятном UI/UX и чистой, производительной бизнес логики.
 mode: subagent
 temperature: 0.1
-steps: 12
 color: primary
 permission:
   edit: allow

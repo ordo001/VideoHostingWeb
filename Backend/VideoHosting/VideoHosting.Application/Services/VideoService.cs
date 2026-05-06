@@ -15,6 +15,7 @@ public class VideoService : IVideoService
     private readonly IMinioService _minioService;
     private readonly IRabbitMqService _rabbitMqService;
     private static readonly HashSet<string> ValidReactionTypes = new() { "Like", "Dislike" };
+    private static readonly List<string> SupportedResolutions = new() { "360p", "480p", "720p", "1080p" };
 
     public VideoService(
         IVideoRepository videoRepository,
@@ -284,5 +285,40 @@ public class VideoService : IVideoService
             video.Dislikes++;
         
         await _videoRepository.UpdateAsync(video);
+    }
+    
+    public async Task<VideoProcessingStatusDto> GetVideoProcessingStatusAsync(Guid videoId)
+    {
+        var video = await _videoRepository.GetByIdAsync(videoId);
+        if (video == null)
+            throw new InvalidOperationException("Видео не найдено");
+
+        var statusDto = new VideoProcessingStatusDto
+        {
+            Status = video.Status.ToLowerInvariant(),
+            Progress = 0,
+            Resolutions = new List<string>()
+        };
+
+        // Если видео обработано, добавляем доступные разрешения
+        if (video.Status.Equals("ready", StringComparison.OrdinalIgnoreCase))
+        {
+            statusDto.Progress = 100;
+            statusDto.Resolutions = SupportedResolutions;
+        }
+        // Если видео в процессе обработки, можем добавить примерный прогресс (в реальной системе это будет более точно)
+        else if (video.Status.Equals("processing", StringComparison.OrdinalIgnoreCase))
+        {
+            // Здесь мог бы быть код для получения точного прогресса из какой-либо системы отслеживания
+            // Пока что возвращаем 0, так как точный прогресс требует дополнительной реализации
+            statusDto.Progress = 0;
+        }
+        // Если видео не удалось обработать, добавляем сообщение об ошибке
+        else if (video.Status.Equals("failed", StringComparison.OrdinalIgnoreCase))
+        {
+            statusDto.ErrorMessage = "Не удалось обработать видео";
+        }
+
+        return statusDto;
     }
 }

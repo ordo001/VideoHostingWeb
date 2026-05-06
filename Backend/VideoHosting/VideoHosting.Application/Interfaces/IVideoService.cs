@@ -18,4 +18,7 @@ public interface IVideoService
     Task<VideoReactionDto?> GetUserReactionAsync(Guid userId, Guid videoId);
     Task AddOrUpdateReactionAsync(Guid userId, Guid videoId, string reactionType);
     Task RemoveReactionAsync(Guid userId, Guid videoId);
+    
+    // Processing status
+    Task<VideoProcessingStatusDto> GetVideoProcessingStatusAsync(Guid videoId);
 }

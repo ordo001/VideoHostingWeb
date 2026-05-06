@@ -238,29 +238,7 @@ public class VideosController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Получение статуса обработки видео
-    /// </summary>
-    /// <param name="id">ID видео</param>
-    /// <returns>Статус обработки видео</returns>
-    [HttpGet("{id}/processing-status")]
-    public async Task<ActionResult<ApiResponse<string>>> GetVideoProcessingStatus(Guid id)
-    {
-        try
-        {
-            var video = await _videoService.GetVideoByIdAsync(id);
-            if (video == null)
-            {
-                return NotFound(ApiResponse<string>.Error("Видео не найдено"));
-            }
-
-            return Ok(ApiResponse<string>.Ok(video.Status, "Статус обработки видео получен"));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ApiResponse<string>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
-        }
-    }
+    
 
     /// <summary>
     /// Увеличение счетчика просмотров видео
@@ -479,5 +457,28 @@ public class VideosController : ControllerBase
             "likes" => video.Likes,
             _ => video.CreatedAt
         };
+    }
+    
+    /// <summary>
+    /// Получение статуса обработки видео
+    /// </summary>
+    /// <param name="id">ID видео</param>
+    /// <returns>Статус обработки видео</returns>
+    [HttpGet("{id}/processing-status")]
+    public async Task<ActionResult<ApiResponse<VideoProcessingStatusDto>>> GetVideoProcessingStatus(Guid id)
+    {
+        try
+        {
+            var status = await _videoService.GetVideoProcessingStatusAsync(id);
+            return Ok(ApiResponse<VideoProcessingStatusDto>.Ok(status, "Статус обработки видео получен"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ApiResponse<VideoProcessingStatusDto>.Error(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponse<VideoProcessingStatusDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+        }
     }
 }

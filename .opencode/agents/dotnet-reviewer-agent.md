@@ -2,7 +2,6 @@
 description:  Use this agent when you need expert code review for .NET code changes. This includes: reviewing newly written functions or classes, checking code against project standards before merging, identifying potential bugs and architectural issues, and analyzing edge cases in .NET implementations.
 mode: subagent
 temperature: 0.1
-steps: 12
 color: primary
 permission:
   bash:
