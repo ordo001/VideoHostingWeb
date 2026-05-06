@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using VideoHosting.Infrastructure.Data;
 using VideoHosting.Domain.Interfaces;
@@ -6,6 +8,10 @@ using VideoHosting.Application.Interfaces;
 using VideoHosting.Application.Services;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using VideoHosting.Api.Middleware;
 using Minio;

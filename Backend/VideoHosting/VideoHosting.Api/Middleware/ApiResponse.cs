@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace VideoHosting.Api.Middleware;
 
 public class ApiResponse<T>
@@ -17,7 +19,7 @@ public class ApiResponse<T>
         };
     }
 
-    public static ApiResponse<T> Error(string message, List<string>? errors = null)
+    public static ApiResponse<T> Error(string message, List<string> errors = null)
     {
         return new ApiResponse<T>
         {
