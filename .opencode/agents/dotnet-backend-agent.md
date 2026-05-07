@@ -2,7 +2,6 @@
 description: Создает высокопроизводительные .NET (ASP.NET Core) бэкенд-сервисы. Специализируется на архитектуре, безопасности и оптимизации EF Core.
 mode: subagent
 temperature: 0.1
-steps: 12
 color: primary
 permission:
   edit: allow

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VideoHosting.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9e479393d57c9f0b7a4e158f7951f18f3a9c3476")]
 [assembly: System.Reflection.AssemblyProductAttribute("VideoHosting.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VideoHosting.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
