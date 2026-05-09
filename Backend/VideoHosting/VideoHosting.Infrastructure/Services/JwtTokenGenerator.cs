@@ -9,15 +9,10 @@ namespace VideoHosting.Infrastructure.Services;
 
 public class JwtTokenGenerator : ITokenGenerator
 {
-    private readonly string _secretKey = "video_hosting_secret_key_very_long_and_secure_for_jwt_signing";
-    private readonly string _issuer = "VideoHosting";
-    private readonly string _audience = "VideoHostingUsers";
-    private readonly int _expiryInHours = 24;
-
     public string GenerateToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_secretKey);
+        var key = Encoding.UTF8.GetBytes(JwtSettings.SecretKey);
         
         var claims = new List<Claim>
         {
@@ -30,9 +25,9 @@ public class JwtTokenGenerator : ITokenGenerator
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(_expiryInHours),
-            Issuer = _issuer,
-            Audience = _audience,
+            Expires = DateTime.UtcNow.AddHours(JwtSettings.ExpiryInHours),
+            Issuer = JwtSettings.Issuer,
+            Audience = JwtSettings.Audience,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 

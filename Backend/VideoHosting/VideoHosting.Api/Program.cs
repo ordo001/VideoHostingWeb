@@ -65,7 +65,6 @@ builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.Mi
 builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
 
 // Add JWT Authentication
-var secretKey = "video_hosting_secret_key_very_long_and_secure_for_jwt_signing";
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -79,9 +78,9 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = "VideoHosting",
-        ValidAudience = "VideoHostingUsers",
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        ValidIssuer = VideoHosting.Infrastructure.Services.JwtSettings.Issuer,
+        ValidAudience = VideoHosting.Infrastructure.Services.JwtSettings.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(VideoHosting.Infrastructure.Services.JwtSettings.SecretKey))
     };
 });
 
