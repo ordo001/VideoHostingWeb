@@ -9,6 +9,7 @@ using VideoHosting.Application.Interfaces;
 using VideoHosting.Domain.Interfaces;
 using VideoHosting.Worker.Services;
 using Microsoft.Extensions.Configuration;
+using System.Diagnostics;
 
 namespace VideoHosting.Worker;
 
@@ -17,8 +18,8 @@ public class VideoProcessingService : IHostedService
     private readonly ILogger<VideoProcessingService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly FFmpegVideoProcessor _videoProcessor;
-    private readonly IConnection _rabbitMqConnection;
-    private readonly IModel _rabbitMqChannel;
+    private IConnection _rabbitMqConnection;
+    private IModel _rabbitMqChannel;
     
     public VideoProcessingService(
         ILogger<VideoProcessingService> logger,
@@ -27,33 +28,70 @@ public class VideoProcessingService : IHostedService
         _logger = logger;
         _serviceProvider = serviceProvider;
         _videoProcessor = new FFmpegVideoProcessor();
-        
+    }
+    
+    private void InitializeRabbitMq()
+    {
         // Получаем IConfiguration из serviceProvider
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var configuration = _serviceProvider.GetRequiredService<IConfiguration>();
+        
+        var hostName = configuration.GetValue<string>("RabbitMq:HostName") ?? "localhost";
+        var userName = configuration.GetValue<string>("RabbitMq:UserName") ?? "guest";
+        var password = configuration.GetValue<string>("RabbitMq:Password") ?? "guest";
+        var port = configuration.GetValue<int?>("RabbitMq:Port") ?? 5672;
+        
+        _logger.LogInformation("Настройка подключения к RabbitMQ: Host={Host}, Port={Port}, User={User}", hostName, port, userName);
         
         // Настройка RabbitMQ из конфигурации
         var factory = new ConnectionFactory()
         {
-            HostName = configuration.GetValue<string>("RabbitMq:HostName") ?? "localhost",
-            UserName = configuration.GetValue<string>("RabbitMq:UserName") ?? "guest",
-            Password = configuration.GetValue<string>("RabbitMq:Password") ?? "guest",
-            Port = configuration.GetValue<int?>("RabbitMq:Port") ?? 5672
+            HostName = hostName,
+            UserName = userName,
+            Password = password,
+            Port = port
         };
         
-        _rabbitMqConnection = factory.CreateConnection();
-        _rabbitMqChannel = _rabbitMqConnection.CreateModel();
+        // Попытки подключения с повторами
+        var maxRetries = 5;
+        var delay = TimeSpan.FromSeconds(5);
         
-        // Объявление очереди для обработки видео
-        _rabbitMqChannel.QueueDeclare(queue: "video-processing",
-                                     durable: true,
-                                     exclusive: false,
-                                     autoDelete: false,
-                                     arguments: null);
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                _logger.LogInformation("Попытка подключения к RabbitMQ ({Attempt}/{MaxRetries})", i + 1, maxRetries);
+                _rabbitMqConnection = factory.CreateConnection();
+                _rabbitMqChannel = _rabbitMqConnection.CreateModel();
+                
+                // Объявление очереди для обработки видео
+                _rabbitMqChannel.QueueDeclare(queue: "video-processing",
+                                             durable: true,
+                                             exclusive: false,
+                                             autoDelete: false,
+                                             arguments: null);
+                
+                _logger.LogInformation("Успешное подключение к RabbitMQ");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось подключиться к RabbitMQ (попытка {Attempt}/{MaxRetries})", i + 1, maxRetries);
+                if (i == maxRetries - 1)
+                {
+                    throw; // Если все попытки исчерпаны, пробрасываем исключение
+                }
+                
+                Task.Delay(delay).Wait();
+            }
+        }
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Video Processing Service is starting.");
+        
+        // Инициализируем подключение к RabbitMQ
+        InitializeRabbitMq();
         
         // Настройка потребителя RabbitMQ
         var consumer = new EventingBasicConsumer(_rabbitMqChannel);
@@ -92,8 +130,20 @@ public class VideoProcessingService : IHostedService
     {
         _logger.LogInformation("Video Processing Service is stopping.");
         
-        _rabbitMqChannel?.Close();
-        _rabbitMqConnection?.Close();
+        try
+        {
+            _rabbitMqChannel?.Close();
+            _rabbitMqConnection?.Close();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при закрытии подключения к RabbitMQ");
+        }
+        finally
+        {
+            _rabbitMqChannel?.Dispose();
+            _rabbitMqConnection?.Dispose();
+        }
         
         return Task.CompletedTask;
     }
