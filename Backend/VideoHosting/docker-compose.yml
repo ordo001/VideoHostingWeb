@@ -57,7 +57,10 @@ services:
       - Minio__Endpoint=http://minio:9000
       - Minio__AccessKey=minioadmin
       - Minio__SecretKey=minioadmin
-      - RabbitMQ__ConnectionString=amqp://guest:guest@rabbitmq:5672
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+      - RabbitMQ__Port=5672
     depends_on:
       - postgres
       - minio
@@ -71,11 +74,15 @@ services:
       dockerfile: VideoHosting.Worker/Dockerfile
     container_name: videohosting-worker
     environment:
+      - ASPNETCORE_ENVIRONMENT=Container
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=videohosting;Username=postgres;Password=postgres;
-      - Minio__Endpoint=http://minio:9000
+      - Minio__Endpoint=minio:9000
       - Minio__AccessKey=minioadmin
       - Minio__SecretKey=minioadmin
-      - RabbitMQ__ConnectionString=amqp://guest:guest@rabbitmq:5672
+      - RabbitMq__HostName=rabbitmq
+      - RabbitMq__UserName=guest
+      - RabbitMq__Password=guest
+      - RabbitMq__Port=5672
     depends_on:
       - postgres
       - minio

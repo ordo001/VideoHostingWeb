@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using VideoHosting.Application.Interfaces;
 using VideoHosting.Domain.Interfaces;
 using VideoHosting.Worker.Services;
+using Microsoft.Extensions.Configuration;
 
 namespace VideoHosting.Worker;
 
@@ -27,12 +28,16 @@ public class VideoProcessingService : IHostedService
         _serviceProvider = serviceProvider;
         _videoProcessor = new FFmpegVideoProcessor();
         
-        // Настройка RabbitMQ
+        // Получаем IConfiguration из serviceProvider
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        
+        // Настройка RabbitMQ из конфигурации
         var factory = new ConnectionFactory()
         {
-            HostName = "localhost",
-            UserName = "guest",
-            Password = "guest"
+            HostName = configuration.GetValue<string>("RabbitMq:HostName") ?? "localhost",
+            UserName = configuration.GetValue<string>("RabbitMq:UserName") ?? "guest",
+            Password = configuration.GetValue<string>("RabbitMq:Password") ?? "guest",
+            Port = configuration.GetValue<int?>("RabbitMq:Port") ?? 5672
         };
         
         _rabbitMqConnection = factory.CreateConnection();

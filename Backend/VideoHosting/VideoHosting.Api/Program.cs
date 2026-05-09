@@ -39,11 +39,13 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 // Add RabbitMQ connection
 builder.Services.AddSingleton<IConnection>(sp =>
 {
+    var configuration = sp.GetRequiredService<IConfiguration>();
     var factory = new ConnectionFactory()
     {
-        HostName = "localhost",
-        UserName = "guest",
-        Password = "guest"
+        HostName = configuration.GetValue<string>("RabbitMq:HostName") ?? "localhost",
+        UserName = configuration.GetValue<string>("RabbitMq:UserName") ?? "guest",
+        Password = configuration.GetValue<string>("RabbitMq:Password") ?? "guest",
+        Port = configuration.GetValue<int?>("RabbitMq:Port") ?? 5672
     };
     return factory.CreateConnection();
 });

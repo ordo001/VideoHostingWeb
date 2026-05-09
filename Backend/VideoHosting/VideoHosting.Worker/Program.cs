@@ -32,24 +32,20 @@ public class Program
                 // Add MinIO client
                 services.AddSingleton<IMinioClient>(sp =>
                 {
+                    var configuration = sp.GetRequiredService<IConfiguration>();
+                    var minioEndpoint = configuration.GetValue<string>("Minio:Endpoint") ?? "localhost:9000";
+                    var minioAccessKey = configuration.GetValue<string>("Minio:AccessKey") ?? "minioadmin";
+                    var minioSecretKey = configuration.GetValue<string>("Minio:SecretKey") ?? "minioadmin";
+                    
                     var minioClient = new MinioClient()
-                        .WithEndpoint("localhost:9000")
-                        .WithCredentials("minioadmin", "minioadmin")
+                        .WithEndpoint(minioEndpoint)
+                        .WithCredentials(minioAccessKey, minioSecretKey)
                         .Build();
                     return minioClient;
                 });
 
-                // Add RabbitMQ connection
-                services.AddSingleton<IConnection>(sp =>
-                {
-                    var factory = new ConnectionFactory()
-                    {
-                        HostName = "localhost",
-                        UserName = "guest",
-                        Password = "guest"
-                    };
-                    return factory.CreateConnection();
-                });
+                // Configure RabbitMQ settings for VideoProcessingService
+                // Note: VideoProcessingService now gets connection settings directly from configuration
 
                 // Add repositories
                 services.AddScoped<IUserRepository, UserRepository>();
