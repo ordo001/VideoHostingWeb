@@ -19,6 +19,7 @@ using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 // Add services to the container.
 builder.Services.AddControllers();
 
@@ -66,23 +67,25 @@ builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messagi
 
 // Add JWT Authentication
 builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = VideoHosting.Infrastructure.Services.JwtSettings.Issuer,
-        ValidAudience = VideoHosting.Infrastructure.Services.JwtSettings.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(VideoHosting.Infrastructure.Services.JwtSettings.SecretKey))
-    };
-});
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = VideoHosting.Infrastructure.Services.JwtSettings.Issuer,
+            ValidAudience = VideoHosting.Infrastructure.Services.JwtSettings.Audience,
+            IssuerSigningKey =
+                new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(VideoHosting.Infrastructure.Services.JwtSettings.SecretKey))
+        };
+    });
 
 // Add Authorization
 builder.Services.AddAuthorization();
@@ -110,9 +113,10 @@ builder.Services.AddSwaggerGen(c =>
     {
         Description = "JWT Authorization header using the Bearer scheme",
         Name = "Authorization",
+        BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = JwtBearerDefaults.AuthenticationScheme,
     });
     
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
@@ -130,6 +134,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
 
 var app = builder.Build();
 
