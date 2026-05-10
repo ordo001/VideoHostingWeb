@@ -123,6 +123,24 @@ public class MinioService : IMinioService
         
         return memoryStream;
     }
+    
+    public async Task<string> UploadFileAsync(Stream fileStream, string objectName, string contentType, string bucketName = "videos")
+    {
+        // Убедимся, что bucket существует
+        await CreateBucketIfNotExists(bucketName);
+
+        var putObjectArgs = new PutObjectArgs()
+            .WithBucket(bucketName)
+            .WithObject(objectName)
+            .WithStreamData(fileStream)
+            .WithObjectSize(fileStream.Length)
+            .WithContentType(contentType);
+
+        await _minioClient.PutObjectAsync(putObjectArgs);
+
+        // Возвращаем путь к файлу
+        return $"{bucketName}/{objectName}";
+    }
 
     private async Task CreateBucketIfNotExists(string bucketName)
     {

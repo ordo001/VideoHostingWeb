@@ -199,12 +199,17 @@ public class VideoProcessingService : IHostedService
                 await _videoProcessor.UploadHlsFilesToMinioAsync(
                     videoId.ToString(),
                     tempProcessingDir,
-                    (filePath, objectName, contentType) =>
+                    async (filePath, objectName, contentType) =>
                     {
                         using var fileStream = File.OpenRead(filePath);
-                        // В реальной реализации здесь будет вызов MinIO для загрузки файла
-                        _logger.LogInformation("Загрузка файла {ObjectName} в MinIO", objectName);
-                        return Task.FromResult($"streaming/{objectName}");
+                        // Загружаем файл в MinIO через minioService
+                        var fullPath = $"streaming/{objectName}";
+                        var actualObjectName = fullPath.Replace("videos/", "").Replace("streaming/", "");
+                        
+                        var result = await minioService.UploadFileAsync(fileStream, actualObjectName, contentType, "videos");
+                        
+                        _logger.LogInformation("Файл {ObjectName} успешно загружен в MinIO", objectName);
+                        return fullPath;
                     });
                 _logger.LogInformation("HLS файлы видео {VideoId} успешно загружены в MinIO", videoId);
                 

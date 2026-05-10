@@ -249,7 +249,7 @@ stream_1080p.m3u8";
             // Если ffprobe завершился успешно (код 0), значит файл корректный
             return process.ExitCode == 0;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Если возникла ошибка при запуске ffprobe (например, не установлен), пропускаем проверку
             return true;
