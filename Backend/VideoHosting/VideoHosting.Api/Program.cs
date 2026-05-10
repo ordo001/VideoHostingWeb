@@ -31,7 +31,7 @@ builder.Services.AddDbContext<VideoHostingDbContext>(options =>
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
     var minioClient = new MinioClient()
-        .WithEndpoint("localhost:9000")
+        .WithEndpoint("minio:9000")
         .WithCredentials("minioadmin", "minioadmin")
         .Build();
     return minioClient;
