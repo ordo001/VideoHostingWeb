@@ -83,6 +83,47 @@ public class MinioService : IMinioService
         return await _minioClient.PresignedGetObjectAsync(presignedGetObjectArgs);
     }
 
+    public async Task<Stream> DownloadFileAsync(string objectName)
+    {
+        // Создаем MemoryStream для хранения данных файла
+        var memoryStream = new MemoryStream();
+        
+        // Определяем имя объекта и bucket
+        string bucketName;
+        string actualObjectName;
+        
+        if (objectName.StartsWith("videos/"))
+        {
+            bucketName = VideoBucketName;
+            actualObjectName = objectName.Replace("videos/", "");
+        }
+        else if (objectName.StartsWith("thumbnails/"))
+        {
+            bucketName = ThumbnailBucketName;
+            actualObjectName = objectName.Replace("thumbnails/", "");
+        }
+        else
+        {
+            bucketName = VideoBucketName;
+            actualObjectName = objectName;
+        }
+
+        var getObjectArgs = new GetObjectArgs()
+            .WithBucket(bucketName)
+            .WithObject(actualObjectName)
+            .WithCallbackStream(stream =>
+            {
+                stream.CopyTo(memoryStream);
+            });
+
+        await _minioClient.GetObjectAsync(getObjectArgs);
+        
+        // Устанавливаем позицию в начало потока
+        memoryStream.Position = 0;
+        
+        return memoryStream;
+    }
+
     private async Task CreateBucketIfNotExists(string bucketName)
     {
         var bucketExistsArgs = new BucketExistsArgs().WithBucket(bucketName);

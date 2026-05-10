@@ -172,7 +172,9 @@ public class VideoProcessingService : IHostedService
             await videoRepository.UpdateAsync(video);
             
             // Скачиваем видео из MinIO
-            var tempVideoPath = await _videoProcessor.DownloadVideoFromMinioAsync(videoFilePath);
+            _logger.LogInformation("Начало скачивания видео {VideoId} из MinIO", videoId);
+            var tempVideoPath = await _videoProcessor.DownloadVideoFromMinioAsync(videoFilePath, minioService.DownloadFileAsync);
+            _logger.LogInformation("Видео {VideoId} успешно скачано из MinIO. Путь: {Path}", videoId, tempVideoPath);
             
             // Создаем временную директорию для обработки
             var tempProcessingDir = Path.Combine(Path.GetTempPath(), $"video_{videoId}");
@@ -181,15 +183,19 @@ public class VideoProcessingService : IHostedService
             try
             {
                 // Транскодируем видео в несколько разрешений
+                _logger.LogInformation("Начало транскодирования видео {VideoId}", videoId);
                 await _videoProcessor.TranscodeToMultipleResolutionsAsync(
                     tempVideoPath,
                     tempProcessingDir,
                     progress => _logger.LogInformation("Прогресс обработки видео {VideoId}: {Progress}%", videoId, progress));
+                _logger.LogInformation("Видео {VideoId} успешно транскодировано", videoId);
                 
                 // Генерируем мастер плейлист
+                _logger.LogInformation("Генерация мастер плейлиста для видео {VideoId}", videoId);
                 _videoProcessor.GenerateMasterPlaylist(tempProcessingDir, videoId);
                 
                 // Загружаем HLS файлы в MinIO
+                _logger.LogInformation("Начало загрузки HLS файлов для видео {VideoId} в MinIO", videoId);
                 await _videoProcessor.UploadHlsFilesToMinioAsync(
                     videoId.ToString(),
                     tempProcessingDir,
@@ -200,6 +206,7 @@ public class VideoProcessingService : IHostedService
                         _logger.LogInformation("Загрузка файла {ObjectName} в MinIO", objectName);
                         return Task.FromResult($"streaming/{objectName}");
                     });
+                _logger.LogInformation("HLS файлы видео {VideoId} успешно загружены в MinIO", videoId);
                 
                 // Обновляем статус видео на Ready
                 video.Status = "Ready";

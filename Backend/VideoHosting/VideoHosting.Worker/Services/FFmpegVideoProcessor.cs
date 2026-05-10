@@ -15,14 +15,54 @@ public class FFmpegVideoProcessor
         }
     }
     
-    public async Task<string> DownloadVideoFromMinioAsync(string videoUrl)
+    public async Task<string> DownloadVideoFromMinioAsync(string videoUrl, Func<string, Task<Stream>> downloadFunc)
     {
-        // В реальной реализации здесь нужно будет скачать видео из MinIO
-        // Пока что создаем временный файл для демонстрации
         var tempVideoPath = Path.Combine(_tempDirectory, $"{Guid.NewGuid()}.mp4");
         
-        // Создаем пустой файл для демонстрации
-        await File.WriteAllTextAsync(tempVideoPath, "temp video content");
+        try
+        {
+            // Скачиваем видео из MinIO
+            using var videoStream = await downloadFunc(videoUrl);
+            
+            // Проверяем, что поток не пустой
+            if (videoStream == null || videoStream.Length == 0)
+            {
+                throw new InvalidOperationException("Получен пустой поток видео из MinIO");
+            }
+            
+            // Сохраняем видео во временный файл
+            using var fileStream = new FileStream(tempVideoPath, FileMode.Create, FileAccess.Write);
+            await videoStream.CopyToAsync(fileStream);
+            
+            // Проверяем, что файл был создан и не пустой
+            if (!File.Exists(tempVideoPath) || new FileInfo(tempVideoPath).Length == 0)
+            {
+                throw new InvalidOperationException("Видео файл не был создан или пустой");
+            }
+            
+            // Дополнительная проверка целостности файла
+            if (!await ValidateVideoFileAsync(tempVideoPath))
+            {
+                throw new InvalidOperationException("Видео файл поврежден или не является корректным видео файлом");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Удаляем частично созданный файл в случае ошибки
+            if (File.Exists(tempVideoPath))
+            {
+                try
+                {
+                    File.Delete(tempVideoPath);
+                }
+                catch
+                {
+                    // Игнорируем ошибки удаления
+                }
+            }
+            
+            throw new InvalidOperationException($"Ошибка при скачивании видео из MinIO: {ex.Message}", ex);
+        }
         
         return tempVideoPath;
     }
@@ -123,12 +163,20 @@ stream_1080p.m3u8";
             throw new InvalidOperationException("Не удалось запустить процесс FFmpeg");
         }
         
+        // Читаем стандартный вывод и ошибки параллельно
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        
         await process.WaitForExitAsync();
         
         if (process.ExitCode != 0)
         {
-            var errorOutput = await process.StandardError.ReadToEndAsync();
-            throw new InvalidOperationException($"FFmpeg завершился с ошибкой: {errorOutput}");
+            var output = await outputTask;
+            var errorOutput = await errorTask;
+            
+            // Логируем детали ошибки
+            var errorMessage = $"FFmpeg завершился с ошибкой (код {process.ExitCode}):\nВыходные данные: {output}\nОшибки: {errorOutput}\nАргументы: {arguments}";
+            throw new InvalidOperationException(errorMessage);
         }
     }
     
@@ -170,6 +218,41 @@ stream_1080p.m3u8";
         catch
         {
             // Игнорируем ошибки очистки
+        }
+    }
+    
+    private async Task<bool> ValidateVideoFileAsync(string filePath)
+    {
+        try
+        {
+            // Используем FFprobe для проверки целостности видео файла
+            var arguments = $"-v quiet -show_streams -show_format -print_format json \"{filePath}\"";
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = "ffprobe",
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            
+            using var process = Process.Start(processStartInfo);
+            if (process == null)
+            {
+                // Если не удалось запустить ffprobe, пропускаем проверку
+                return true;
+            }
+            
+            await process.WaitForExitAsync();
+            
+            // Если ffprobe завершился успешно (код 0), значит файл корректный
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex)
+        {
+            // Если возникла ошибка при запуске ffprobe (например, не установлен), пропускаем проверку
+            return true;
         }
     }
 }
