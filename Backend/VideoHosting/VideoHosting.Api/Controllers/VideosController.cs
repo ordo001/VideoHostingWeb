@@ -37,7 +37,7 @@ public class VideosController : ControllerBase
     /// <returns>Информация о загруженном видео</returns>
     [HttpPost("upload")]
     [Authorize]
-public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadDto uploadDto)
+    public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadDto uploadDto)
     {
         try
         {
@@ -91,52 +91,6 @@ public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadDto 
         catch (Exception ex)
         {
             return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
-        }
-    }
-
-            // Загрузка видео файла в MinIO
-            var videoFileName = $"{Guid.NewGuid()}_{uploadDto.VideoFile.FileName}";
-            var videoUrl = await _minioService.UploadVideoAsync(
-                uploadDto.VideoFile.OpenReadStream(),
-                videoFileName,
-                uploadDto.VideoFile.ContentType);
-
-            // Загрузка миниатюры (если предоставлена)
-            string? thumbnailUrl = null;
-            if (uploadDto.ThumbnailFile != null)
-            {
-                var thumbnailFileName = $"{Guid.NewGuid()}_{uploadDto.ThumbnailFile.FileName}";
-                thumbnailUrl = await _minioService.UploadThumbnailAsync(
-                    uploadDto.ThumbnailFile.OpenReadStream(),
-                    thumbnailFileName,
-                    uploadDto.ThumbnailFile.ContentType);
-            }
-
-            // Создание записи о видео в БД
-            var videoDto = new VideoDto
-            {
-                Id = Guid.NewGuid(),
-                Title = uploadDto.Title,
-                Description = uploadDto.Description,
-                OriginalVideoUrl = videoUrl,
-                ThumbnailUrl = thumbnailUrl,
-                Status = "Processing",
-                UserId = userGuid,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                User = new UserDto { Id = userGuid } // Заполняем только ID пользователя
-            };
-
-            var createdVideo = await _videoService.CreateVideoAsync(videoDto);
-
-            // Публикация события в RabbitMQ для обработки
-            await _rabbitMqService.PublishVideoProcessingMessageAsync(createdVideo.Id, videoUrl);
-
-            return Ok(ApiResponse<VideoDto>.Ok(createdVideo, "Видео успешно загружено и отправлено на обработку"));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ApiResponse<VideoDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
         }
     }
 

@@ -89,7 +89,8 @@ public class UserService : IUserService
             Description = user.Description,
             IsAdmin = user.IsAdmin,
             CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt
+            UpdatedAt = user.UpdatedAt,
+            SubscribersCount = _subscriptionRepository.GetSubscriberCountAsync(user.Id).Result
         };
     }
 
@@ -158,5 +159,39 @@ private User MapToEntity(UserDto userDto)
     public async Task<int> GetSubscriberCountAsync(Guid channelId)
     {
         return await _subscriptionRepository.GetSubscriberCountAsync(channelId);
+    }
+    
+    public async Task<IEnumerable<UserDto>> GetUserSubscriptionsAsync(Guid userId)
+    {
+        var subscriptions = await _subscriptionRepository.GetBySubscriberAsync(userId);
+        var subscribedChannels = new List<UserDto>();
+        
+        foreach (var subscription in subscriptions)
+        {
+            var channel = await _userRepository.GetByIdAsync(subscription.ChannelId);
+            if (channel != null)
+            {
+                subscribedChannels.Add(MapToDto(channel));
+            }
+        }
+        
+        return subscribedChannels;
+    }
+    
+    public async Task<IEnumerable<UserDto>> GetChannelSubscribersAsync(Guid channelId)
+    {
+        var subscriptions = await _subscriptionRepository.GetByChannelAsync(channelId);
+        var subscribers = new List<UserDto>();
+        
+        foreach (var subscription in subscriptions)
+        {
+            var subscriber = await _userRepository.GetByIdAsync(subscription.SubscriberId);
+            if (subscriber != null)
+            {
+                subscribers.Add(MapToDto(subscriber));
+            }
+        }
+        
+        return subscribers;
     }
 }

@@ -10,4 +10,8 @@ public interface ISubscriptionRepository
     Task<int> GetSubscriberCountAsync(Guid channelId);
     Task<Subscription> CreateAsync(Subscription subscription);
     Task DeleteAsync(Guid id);
+    
+    // Дополнительные методы для SubscriptionsController
+    Task<IEnumerable<Subscription>> GetBySubscriberAsync(Guid subscriberId);
+    Task<IEnumerable<Subscription>> GetByChannelAsync(Guid channelId);
 }

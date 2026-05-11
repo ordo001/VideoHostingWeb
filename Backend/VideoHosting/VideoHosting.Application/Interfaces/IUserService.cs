@@ -17,4 +17,6 @@ public interface IUserService
     Task<bool> UnsubscribeAsync(Guid subscriberId, Guid channelId);
     Task<bool> IsSubscribedAsync(Guid subscriberId, Guid channelId);
     Task<int> GetSubscriberCountAsync(Guid channelId);
+    Task<IEnumerable<UserDto>> GetUserSubscriptionsAsync(Guid userId);
+    Task<IEnumerable<UserDto>> GetChannelSubscribersAsync(Guid channelId);
 }
