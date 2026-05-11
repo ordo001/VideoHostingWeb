@@ -18,8 +18,8 @@ public class VideoProcessingService : IHostedService
     private readonly ILogger<VideoProcessingService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly FFmpegVideoProcessor _videoProcessor;
-    private IConnection _rabbitMqConnection;
-    private IModel _rabbitMqChannel;
+    private IConnection? _rabbitMqConnection;
+    private IModel? _rabbitMqChannel;
     
     public VideoProcessingService(
         ILogger<VideoProcessingService> logger,

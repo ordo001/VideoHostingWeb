@@ -138,9 +138,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Apply migrations on startup if migrate argument is provided
-var commandLineArgs = Environment.GetCommandLineArgs();
-if (commandLineArgs.Contains("--migrate"))
+// Always apply migrations on startup
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<VideoHostingDbContext>();

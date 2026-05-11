@@ -16,9 +16,16 @@ namespace VideoHosting.Worker;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
-        CreateHostBuilder(args).Build().Run();
+        var host = CreateHostBuilder(args).Build();
+        
+        // Apply database migrations on startup
+        using var scope = host.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<VideoHostingDbContext>();
+        await dbContext.Database.MigrateAsync();
+        
+        await host.RunAsync();
     }
 
     public static IHostBuilder CreateHostBuilder(string[] args) =>
