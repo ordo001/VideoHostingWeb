@@ -158,6 +158,14 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Container"
 
 app.UseHttpsRedirection();
 
+app.UseCors(x =>
+{
+    x.WithOrigins("http://localhost:3000")
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+});
+
 // Add error handling middleware
 app.UseMiddleware<ErrorHandlingMiddleware>();
 

@@ -53,7 +53,7 @@ public class Program
                 services.AddSingleton<IMinioClient>(sp =>
                 {
                     var configuration = sp.GetRequiredService<IConfiguration>();
-                    var minioEndpoint = configuration.GetValue<string>("Minio:Endpoint") ?? "localhost:9000";
+                    var minioEndpoint = configuration.GetValue<string>("Minio:Endpoint") ?? "minio:9000";
                     var minioAccessKey = configuration.GetValue<string>("Minio:AccessKey") ?? "minioadmin";
                     var minioSecretKey = configuration.GetValue<string>("Minio:SecretKey") ?? "minioadmin";
                     
