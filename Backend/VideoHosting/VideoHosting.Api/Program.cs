@@ -19,6 +19,7 @@ using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 // Add services to the container.
 builder.Services.AddControllers();
 
@@ -30,7 +31,7 @@ builder.Services.AddDbContext<VideoHostingDbContext>(options =>
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
     var minioClient = new MinioClient()
-        .WithEndpoint("localhost:9000")
+        .WithEndpoint("minio:9000")
         .WithCredentials("minioadmin", "minioadmin")
         .Build();
     return minioClient;
@@ -39,11 +40,13 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 // Add RabbitMQ connection
 builder.Services.AddSingleton<IConnection>(sp =>
 {
+    var configuration = sp.GetRequiredService<IConfiguration>();
     var factory = new ConnectionFactory()
     {
-        HostName = "localhost",
-        UserName = "guest",
-        Password = "guest"
+        HostName = configuration.GetValue<string>("RabbitMq:HostName") ?? "localhost",
+        UserName = configuration.GetValue<string>("RabbitMq:UserName") ?? "guest",
+        Password = configuration.GetValue<string>("RabbitMq:Password") ?? "guest",
+        Port = configuration.GetValue<int?>("RabbitMq:Port") ?? 5672
     };
     return factory.CreateConnection();
 });
@@ -63,25 +66,26 @@ builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.Mi
 builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
 
 // Add JWT Authentication
-var secretKey = "video_hosting_secret_key_very_long_and_secure_for_jwt_signing";
 builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = "VideoHosting",
-        ValidAudience = "VideoHostingUsers",
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
-    };
-});
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = VideoHosting.Infrastructure.Services.JwtSettings.Issuer,
+            ValidAudience = VideoHosting.Infrastructure.Services.JwtSettings.Audience,
+            IssuerSigningKey =
+                new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(VideoHosting.Infrastructure.Services.JwtSettings.SecretKey))
+        };
+    });
 
 // Add Authorization
 builder.Services.AddAuthorization();
@@ -109,9 +113,10 @@ builder.Services.AddSwaggerGen(c =>
     {
         Description = "JWT Authorization header using the Bearer scheme",
         Name = "Authorization",
+        BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = JwtBearerDefaults.AuthenticationScheme,
     });
     
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
@@ -129,6 +134,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
 
 var app = builder.Build();
 

@@ -40,6 +40,7 @@ VideoHosting.Backend/
 ### Требования
 - .NET 9.0 SDK
 - Docker и Docker Compose
+- FFmpeg (для обработки видео в Worker сервисе)
 
 ### Запуск с помощью Docker
 ```bash
@@ -60,6 +61,24 @@ dotnet run --project Backend/VideoHosting/VideoHosting.Api/VideoHosting.Api.cspr
 
 # Запуск Worker
 dotnet run --project Backend/VideoHosting/VideoHosting.Worker/VideoHosting.Worker.csproj
+```
+
+### Установка FFmpeg
+Для корректной работы Worker сервиса необходимо установить FFmpeg:
+
+**Windows:**
+1. Скачайте FFmpeg с официального сайта: https://ffmpeg.org/download.html
+2. Добавьте путь к ffmpeg/bin в переменную окружения PATH
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**macOS:**
+```bash
+brew install ffmpeg
 ```
 
 ### Применение миграций БД

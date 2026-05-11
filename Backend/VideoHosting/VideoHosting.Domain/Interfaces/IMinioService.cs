@@ -7,4 +7,6 @@ public interface IMinioService
     Task DeleteVideoAsync(string videoUrl);
     Task DeleteThumbnailAsync(string thumbnailUrl);
     Task<string> GetPresignedUrlAsync(string objectName, int expirySeconds = 3600);
+    Task<Stream> DownloadFileAsync(string objectName);
+    Task<string> UploadFileAsync(Stream fileStream, string objectName, string contentType, string bucketName = "videos");
 }

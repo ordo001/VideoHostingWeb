@@ -17,7 +17,7 @@ public class JwtTokenGenerator : ITokenGenerator
     public string GenerateToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_secretKey);
+        var key = Encoding.UTF8.GetBytes(JwtSettings.SecretKey);
         
         var claims = new List<Claim>
         {
