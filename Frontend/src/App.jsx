@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { useAuthModal } from './hooks/useAuthModal';
 import Header from './components/Header';
 import Button from './components/Button';
 import VideoCard from './components/VideoCard';
 import Loader from './components/Loader';
 import Notification from './components/Notification';
+import AuthModal from './components/AuthModal';
 import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
@@ -13,6 +15,7 @@ import WatchPage from './pages/WatchPage';
 import UploadPage from './pages/UploadPage';
 import ChannelPage from './pages/ChannelPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
+import NotFoundPage from './pages/NotFoundPage';
 import {
   AdminLayout,
   DashboardPage,
@@ -21,10 +24,17 @@ import {
   StatsPage,
   LogsPage
 } from './pages/admin';
+import videoService from './services/videoService';
 import './App.css';
 
 function App() {
   const { getCurrentUser, isAuthenticated } = useAuth();
+  const { isModalOpen, redirectPath, openAuthModal, closeAuthModal } = useAuthModal();
+  
+  // Состояния для видео
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // При монтировании приложения проверяем, есть ли токен и получаем данные пользователя
   useEffect(() => {
@@ -33,63 +43,91 @@ function App() {
     }
   }, [getCurrentUser]);
   
-  // Пример данных для видео
-  const sampleVideos = [
-    {
-      id: '1',
-      title: 'Введение в цифровое кино',
-      author: { name: 'Алексей Петров', avatar: null },
-      duration: 320,
-      views: 15000,
-      createdAt: '2026-05-01T10:00:00Z',
-      thumbnail: null
-    },
-    {
-      id: '2',
-      title: 'Технологии HDR в современном кино',
-      author: { name: 'Марина Соколова', avatar: null },
-      duration: 540,
-      views: 8900,
-      createdAt: '2026-05-05T14:30:00Z',
-      thumbnail: null
-    },
-    {
-      id: '3',
-      title: 'Работа с цветокоррекцией',
-      author: { name: 'Дмитрий Козлов', avatar: null },
-      duration: 720,
-      views: 12500,
-      createdAt: '2026-05-08T09:15:00Z',
-      thumbnail: null
-    },
-    {
-      id: '4',
-      title: 'Съемка в условиях низкой освещенности',
-      author: { name: 'Елена Волкова', avatar: null },
-      duration: 480,
-      views: 9800,
-      createdAt: '2026-05-09T16:45:00Z',
-      thumbnail: null
-    },
-    {
-      id: '5',
-      title: 'Монтаж документальных фильмов',
-      author: { name: 'Андрей Смирнов', avatar: null },
-      duration: 620,
-      views: 11300,
-      createdAt: '2026-05-10T11:20:00Z',
-      thumbnail: null
-    },
-    {
-      id: '6',
-      title: 'Работа со звуком в полевых условиях',
-      author: { name: 'Ольга Морозова', avatar: null },
-      duration: 390,
-      views: 7600,
-      createdAt: '2026-05-10T14:10:00Z',
-      thumbnail: null
-    }
-  ];
+  // Загружаем видео при монтировании компонента
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        setLoading(true);
+        // Загружаем популярные видео с бэкенда, адаптируемся к параметрам бэкенда
+        const response = await videoService.getVideos({ 
+          SortBy: 'Views', 
+          SortDescending: true, 
+          PageSize: 6,
+          Page: 1
+        });
+        
+        // Используем адаптированные видео
+        setVideos(response.videos || []);
+        setError(null);
+      } catch (err) {
+        console.error('Ошибка при загрузке видео:', err);
+        setError(err.message);
+        
+        // Загружаем моковые данные при ошибке
+        const mockVideos = [
+          {
+            id: '1',
+            title: 'Введение в цифровое кино',
+            author: { name: 'Алексей Петров', avatar: null },
+            duration: 320,
+            views: 15000,
+            createdAt: '2026-05-01T10:00:00Z',
+            thumbnail: null
+          },
+          {
+            id: '2',
+            title: 'Технологии HDR в современном кино',
+            author: { name: 'Марина Соколова', avatar: null },
+            duration: 540,
+            views: 8900,
+            createdAt: '2026-05-05T14:30:00Z',
+            thumbnail: null
+          },
+          {
+            id: '3',
+            title: 'Работа с цветокоррекцией',
+            author: { name: 'Дмитрий Козлов', avatar: null },
+            duration: 720,
+            views: 12500,
+            createdAt: '2026-05-08T09:15:00Z',
+            thumbnail: null
+          },
+          {
+            id: '4',
+            title: 'Съемка в условиях низкой освещенности',
+            author: { name: 'Елена Волкова', avatar: null },
+            duration: 480,
+            views: 9800,
+            createdAt: '2026-05-09T16:45:00Z',
+            thumbnail: null
+          },
+          {
+            id: '5',
+            title: 'Монтаж документальных фильмов',
+            author: { name: 'Андрей Смирнов', avatar: null },
+            duration: 620,
+            views: 11300,
+            createdAt: '2026-05-10T11:20:00Z',
+            thumbnail: null
+          },
+          {
+            id: '6',
+            title: 'Работа со звуком в полевых условиях',
+            author: { name: 'Ольга Морозова', avatar: null },
+            duration: 390,
+            views: 7600,
+            createdAt: '2026-05-10T14:10:00Z',
+            thumbnail: null
+          }
+        ];
+        setVideos(mockVideos);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchVideos();
+  }, []);
 
   return (
     <Router>
@@ -130,9 +168,23 @@ function App() {
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {sampleVideos.slice(0, 3).map(video => (
-                      <VideoCard key={video.id} {...video} />
-                    ))}
+                    {videos && videos.length > 0 ? (
+                      videos.slice(0, 3).map(video => (
+                        <VideoCard 
+                          key={video.id} 
+                          {...video} 
+                          onClick={() => window.open(`/watch/${video.id}`, '_self')}
+                        />
+                      ))
+                    ) : loading ? (
+                      <div className="col-span-3 flex justify-center py-12">
+                        <Loader size="lg" />
+                      </div>
+                    ) : (
+                      <div className="col-span-3 text-center py-12 text-gray-400">
+                        Не удалось загрузить видео
+                      </div>
+                    )}
                   </div>
                 </section>
                 
@@ -145,9 +197,23 @@ function App() {
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {sampleVideos.slice(3, 6).map(video => (
-                      <VideoCard key={video.id} {...video} />
-                    ))}
+                    {videos && videos.length > 0 ? (
+                      videos.slice(3, 6).map(video => (
+                        <VideoCard 
+                          key={video.id} 
+                          {...video} 
+                          onClick={() => window.open(`/watch/${video.id}`, '_self')}
+                        />
+                      ))
+                    ) : loading ? (
+                      <div className="col-span-3 flex justify-center py-12">
+                        <Loader size="lg" />
+                      </div>
+                    ) : (
+                      <div className="col-span-3 text-center py-12 text-gray-400">
+                        Не удалось загрузить видео
+                      </div>
+                    )}
                   </div>
                 </section>
               </div>
@@ -161,6 +227,9 @@ function App() {
             <Route path="/watch/:videoId" element={<WatchPage />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            
+            {/* Страница 404 */}
+            <Route path="*" element={<NotFoundPage />} />
             
             {/* Административная панель */}
             <Route path="/admin" element={<AdminLayout><DashboardPage /></AdminLayout>} />
@@ -185,6 +254,13 @@ function App() {
           </div>
         </footer>
       </div>
+      
+      {/* Модальное окно авторизации */}
+      <AuthModal 
+        isOpen={isModalOpen} 
+        onClose={closeAuthModal} 
+        redirectTo={redirectPath} 
+      />
     </Router>
   );
 }

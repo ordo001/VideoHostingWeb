@@ -1,16 +1,30 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const VideoCard = ({ 
+  id = '', // Обеспечиваем значение по умолчанию
   thumbnail, 
-  title, 
+  title = 'Без названия', 
   author, 
-  duration, 
-  views, 
+  duration = 0, 
+  views = 0, 
   createdAt,
   onClick,
   className = ''
 }) => {
+  const navigate = useNavigate();
+  
+  // Обработчик клика на карточку видео
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (id) {
+      // Конвертируем GUID в строку, если это необходимо
+      const videoId = typeof id === 'object' ? id.toString() : id;
+      navigate(`/watch/${videoId}`);
+    }
+  };
   // Форматирование продолжительности видео
   const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -53,13 +67,13 @@ const VideoCard = ({
       className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group ${className}`}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.2 }}
-      onClick={onClick}
+      onClick={handleCardClick}
     >
       {/* Thumbnail */}
       <div className="relative aspect-video overflow-hidden">
-        {thumbnail ? (
+        {thumbnail || thumbnail_url ? (
           <img 
-            src={thumbnail} 
+            src={thumbnail_url || thumbnail} 
             alt={title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
@@ -86,16 +100,16 @@ const VideoCard = ({
         <div className="flex">
           {/* Author avatar */}
           <div className="flex-shrink-0 mr-3">
-            {author?.avatar ? (
+            {author?.avatar || author?.AvatarUrl || author?.avatar_url ? (
               <img 
-                src={author.avatar} 
-                alt={author.name}
+                src={author?.avatar_url || author?.AvatarUrl || author?.avatar} 
+                alt={author?.name || author?.Name || 'Автор'}
                 className="w-10 h-10 rounded-full object-cover"
               />
             ) : (
               <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
-                  {author?.name?.charAt(0)?.toUpperCase() || '?'}
+                  {(author?.name?.charAt(0) || author?.Name?.charAt(0) || '?').toUpperCase()}
                 </span>
               </div>
             )}
@@ -108,7 +122,7 @@ const VideoCard = ({
             </h3>
             
             <p className="text-gray-400 text-sm mb-1">
-              {author?.name || 'Неизвестный автор'}
+              {author?.name || author?.Name || 'Неизвестный автор'}
             </p>
             
             <div className="flex text-gray-500 text-xs">

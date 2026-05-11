@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
+import { handleApiResponse, adaptVideoData, adaptVideosList } from '../utils/adapterUtils';
 
 // Создаем экземпляр axios для работы с видео
 const videoApiClient = axios.create({
@@ -26,9 +27,15 @@ export const videoService = {
   getVideos: async (params = {}) => {
     try {
       const response = await videoApiClient.get('/videos', { params });
-      return response.data;
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      
+      // Возвращаем адаптированные данные
+      return Array.isArray(data) ? { videos: adaptVideosList(data) } : 
+             Array.isArray(data?.data) ? { videos: adaptVideosList(data.data) } :
+             { videos: adaptVideosList(data?.videos || data || []) };
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения списка видео');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения списка видео');
     }
   },
   
@@ -36,9 +43,13 @@ export const videoService = {
   getVideoById: async (videoId) => {
     try {
       const response = await videoApiClient.get(`/videos/${videoId}`);
-      return response.data;
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      
+      // Возвращаем адаптированные данные
+      return adaptVideoData(data);
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения информации о видео');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения информации о видео');
     }
   },
   
@@ -56,9 +67,13 @@ export const videoService = {
           }
         },
       });
-      return response.data;
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      
+      // Возвращаем адаптированные данные
+      return adaptVideoData(data);
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка загрузки видео');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка загрузки видео');
     }
   },
   
@@ -66,9 +81,13 @@ export const videoService = {
   updateVideo: async (videoId, videoData) => {
     try {
       const response = await videoApiClient.put(`/videos/${videoId}`, videoData);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка обновления информации о видео');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка обновления информации о видео');
     }
   },
   
@@ -76,9 +95,13 @@ export const videoService = {
   deleteVideo: async (videoId) => {
     try {
       const response = await videoApiClient.delete(`/videos/${videoId}`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка удаления видео');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка удаления видео');
     }
   },
   
@@ -86,9 +109,13 @@ export const videoService = {
   likeVideo: async (videoId) => {
     try {
       const response = await videoApiClient.post(`/videos/${videoId}/like`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка при добавлении лайка');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка при добавлении лайка');
     }
   },
   
@@ -96,9 +123,13 @@ export const videoService = {
   dislikeVideo: async (videoId) => {
     try {
       const response = await videoApiClient.post(`/videos/${videoId}/dislike`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка при добавлении дизлайка');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка при добавлении дизлайка');
     }
   },
   
@@ -118,29 +149,50 @@ export const videoService = {
   getVideoProcessingStatus: async (videoId) => {
     try {
       const response = await videoApiClient.get(`/videos/${videoId}/processing-status`);
-      return response.data;
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      
+      // Адаптируем формат статуса для фронтенда
+      return {
+        status: data.status || data.Status || 'processing',
+        progress: data.progress || data.Progress || 0
+      };
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения статуса обработки видео');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения статуса обработки видео');
     }
   },
   
   // Получение комментариев к видео
   getVideoComments: async (videoId, params = {}) => {
     try {
-      const response = await videoApiClient.get(`/videos/${videoId}/comments`, { params });
-      return response.data;
+      // Пока комментарии не реализованы в бэкенде, возвращаем моковые данные
+      // В реальном приложении:
+      // const response = await videoApiClient.get(`/videos/${videoId}/comments`, { params });
+      // const data = handleApiResponse(response.data);
+      // return adaptCommentsList(data?.comments || data || []);
+      
+      return {
+        comments: [],
+        count: 0,
+        hasMore: false
+      };
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения комментариев');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения комментариев');
     }
   },
   
   // Добавление комментария к видео
   addVideoComment: async (videoId, commentData) => {
     try {
-      const response = await videoApiClient.post(`/videos/${videoId}/comments`, commentData);
-      return response.data;
+      // Пока комментарии не реализованы в бэкенде, выбрасываем ошибку
+      throw new Error('Функция комментариев находится в разработке');
+      
+      // В реальном приложении:
+      // const response = await videoApiClient.post(`/videos/${videoId}/comments`, commentData);
+      // const data = handleApiResponse(response.data);
+      // return adaptCommentData(data);
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка добавления комментария');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка добавления комментария');
     }
   },
 };

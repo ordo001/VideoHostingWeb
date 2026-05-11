@@ -1,50 +1,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-
-// Имитация API вызовов
-const fakeApi = {
-  register: async (userData) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return {
-      token: 'fake-jwt-token',
-      user: {
-        id: '1',
-        name: userData.name,
-        email: userData.email,
-        isAdmin: false
-      }
-    };
-  },
-  
-  login: async (credentials) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return {
-      token: 'fake-jwt-token',
-      user: {
-        id: '1',
-        name: 'Алексей Петров',
-        email: credentials.email,
-        isAdmin: false
-      }
-    };
-  },
-  
-  getCurrentUser: async (token) => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      id: '1',
-      name: 'Алексей Петров',
-      email: 'alexey@example.com',
-      isAdmin: false
-    };
-  }
-};
+import authService from '../services/authService';
 
 // Async thunks
 export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = await fakeApi.register(userData);
+      const response = await authService.register(userData);
       // Сохраняем токен в localStorage
       localStorage.setItem('token', response.token);
       return response;
@@ -58,7 +20,7 @@ export const loginUser = createAsyncThunk(
   'auth/login',
   async (credentials, { rejectWithValue }) => {
     try {
-      const response = await fakeApi.login(credentials);
+      const response = await authService.login(credentials);
       // Сохраняем токен в localStorage
       localStorage.setItem('token', response.token);
       return response;
@@ -76,7 +38,7 @@ export const fetchCurrentUser = createAsyncThunk(
       if (!token) {
         throw new Error('Нет токена');
       }
-      const response = await fakeApi.getCurrentUser(token);
+      const response = await authService.getCurrentUser(token);
       return response;
     } catch (error) {
       // Удаляем токен при ошибке

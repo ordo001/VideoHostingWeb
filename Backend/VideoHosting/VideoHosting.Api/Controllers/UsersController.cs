@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VideoHosting.Application.DTOs;
 using VideoHosting.Application.Interfaces;
-using VideoHosting.Api.Middleware;
 
 namespace VideoHosting.Api.Controllers;
 
@@ -33,7 +32,7 @@ public class UsersController : ControllerBase
     /// <returns>Информация о текущем пользователе</returns>
     [HttpGet("profile")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<UserDto>>> GetProfile()
+    public async Task<ActionResult<UserDto>> GetProfile()
     {
         try
         {
@@ -41,20 +40,20 @@ public class UsersController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
-                return Unauthorized(ApiResponse<UserDto>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var user = await _userService.GetUserByIdAsync(userGuid);
             if (user == null)
             {
-                return NotFound(ApiResponse<UserDto>.Error("Пользователь не найден"));
+                return NotFound(new { error = new { message = "Пользователь не найден" } });
             }
 
-            return Ok(ApiResponse<UserDto>.Ok(user, "Информация о пользователе получена"));
+            return Ok(user);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<UserDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -65,7 +64,7 @@ public class UsersController : ControllerBase
     /// <returns>Обновленная информация о пользователе</returns>
     [HttpPut("profile")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<UserDto>>> UpdateProfile([FromBody] UserDto userDto)
+    public async Task<ActionResult<UserDto>> UpdateProfile([FromBody] UserDto userDto)
     {
         try
         {
@@ -73,7 +72,7 @@ public class UsersController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
-                return Unauthorized(ApiResponse<UserDto>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             // Проверка, что пользователь обновляет свой профиль
@@ -83,11 +82,11 @@ public class UsersController : ControllerBase
             }
 
             await _userService.UpdateUserAsync(userDto);
-            return Ok(ApiResponse<UserDto>.Ok(userDto, "Профиль успешно обновлен"));
+            return Ok(userDto);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<UserDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -98,34 +97,34 @@ public class UsersController : ControllerBase
     /// <returns>Результат подписки</returns>
     [HttpPost("{channelId}/subscribe")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> Subscribe(Guid channelId)
+    public async Task<ActionResult<bool>> Subscribe(Guid channelId)
     {
         try
         {
             // Получение ID пользователя из токена
             if (!TryGetCurrentUserId(out var userGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             // Проверка, что пользователь не пытается подписаться на самого себя
             if (userGuid == channelId)
             {
-                return BadRequest(ApiResponse<bool>.Error("Нельзя подписаться на самого себя"));
+                return BadRequest(new { error = new { message = "Нельзя подписаться на самого себя" } });
             }
 
             var result = await _userService.SubscribeAsync(userGuid, channelId);
             
             if (!result)
             {
-                return BadRequest(ApiResponse<bool>.Error("Подписка уже существует или пользователь не найден"));
+                return BadRequest(new { error = new { message = "Подписка уже существует или пользователь не найден" } });
             }
 
-            return Ok(ApiResponse<bool>.Ok(true, "Успешная подписка"));
+            return Ok(true);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -136,28 +135,28 @@ public class UsersController : ControllerBase
     /// <returns>Результат отписки</returns>
     [HttpPost("{channelId}/unsubscribe")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> Unsubscribe(Guid channelId)
+    public async Task<ActionResult<bool>> Unsubscribe(Guid channelId)
     {
         try
         {
             // Получение ID пользователя из токена
             if (!TryGetCurrentUserId(out var userGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var result = await _userService.UnsubscribeAsync(userGuid, channelId);
             
             if (!result)
             {
-                return BadRequest(ApiResponse<bool>.Error("Подписка не найдена"));
+                return BadRequest(new { error = new { message = "Подписка не найдена" } });
             }
 
-            return Ok(ApiResponse<bool>.Ok(true, "Успешная отписка"));
+            return Ok(true);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -168,23 +167,23 @@ public class UsersController : ControllerBase
     /// <returns>Результат проверки подписки</returns>
     [HttpGet("{channelId}/is-subscribed")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> IsSubscribed(Guid channelId)
+    public async Task<ActionResult<bool>> IsSubscribed(Guid channelId)
     {
         try
         {
             // Получение ID пользователя из токена
             if (!TryGetCurrentUserId(out var userGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var result = await _userService.IsSubscribedAsync(userGuid, channelId);
 
-            return Ok(ApiResponse<bool>.Ok(result, "Результат проверки подписки"));
+            return Ok(result);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -194,17 +193,17 @@ public class UsersController : ControllerBase
     /// <param name="channelId">ID канала</param>
     /// <returns>Количество подписчиков</returns>
     [HttpGet("{channelId}/subscriber-count")]
-    public async Task<ActionResult<ApiResponse<int>>> GetSubscriberCount(Guid channelId)
+    public async Task<ActionResult<int>> GetSubscriberCount(Guid channelId)
     {
         try
         {
             var count = await _userService.GetSubscriberCountAsync(channelId);
 
-            return Ok(ApiResponse<int>.Ok(count, "Количество подписчиков"));
+            return Ok(count);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<int>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 }

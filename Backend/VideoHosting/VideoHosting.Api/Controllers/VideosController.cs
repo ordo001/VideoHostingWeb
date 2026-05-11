@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VideoHosting.Application.DTOs;
 using VideoHosting.Application.Interfaces;
-using VideoHosting.Api.Middleware;
 using VideoHosting.Api.Models;
 using VideoHosting.Domain.Interfaces;
 
@@ -38,7 +37,7 @@ public class VideosController : ControllerBase
     /// <returns>Информация о загруженном видео</returns>
     [HttpPost("upload")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<VideoDto>>> UploadVideo([FromForm] VideoUploadDto uploadDto)
+public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadDto uploadDto)
     {
         try
         {
@@ -46,8 +45,54 @@ public class VideosController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
-                return Unauthorized(ApiResponse<VideoDto>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
+
+            // Загрузка видео файла в MinIO
+            var videoFileName = $"{Guid.NewGuid()}_{uploadDto.VideoFile.FileName}";
+            var videoUrl = await _minioService.UploadVideoAsync(
+                uploadDto.VideoFile.OpenReadStream(),
+                videoFileName,
+                uploadDto.VideoFile.ContentType);
+
+            // Загрузка миниатюры (если предоставлена)
+            string? thumbnailUrl = null;
+            if (uploadDto.ThumbnailFile != null)
+            {
+                var thumbnailFileName = $"{Guid.NewGuid()}_{uploadDto.ThumbnailFile.FileName}";
+                thumbnailUrl = await _minioService.UploadThumbnailAsync(
+                    uploadDto.ThumbnailFile.OpenReadStream(),
+                    thumbnailFileName,
+                    uploadDto.ThumbnailFile.ContentType);
+            }
+
+            // Создание записи о видео в БД
+            var videoDto = new VideoDto
+            {
+                Id = Guid.NewGuid(),
+                Title = uploadDto.Title,
+                Description = uploadDto.Description,
+                OriginalVideoUrl = videoUrl,
+                ThumbnailUrl = thumbnailUrl,
+                Status = "Processing",
+                UserId = userGuid,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                User = new UserDto { Id = userGuid } // Заполняем только ID пользователя
+            };
+
+            var createdVideo = await _videoService.CreateVideoAsync(videoDto);
+
+            // Публикация события в RabbitMQ для обработки
+            await _rabbitMqService.PublishVideoProcessingMessageAsync(createdVideo.Id, videoUrl);
+
+            return Ok(createdVideo);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
 
             // Загрузка видео файла в MinIO
             var videoFileName = $"{Guid.NewGuid()}_{uploadDto.VideoFile.FileName}";
@@ -101,7 +146,7 @@ public class VideosController : ControllerBase
     /// <param name="request">Параметры запроса списка видео</param>
     /// <returns>Список видео</returns>
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<IEnumerable<VideoDto>>>> GetVideos([FromQuery] VideoListRequestDto request)
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] VideoListRequestDto request)
     {
         try
         {
@@ -124,11 +169,11 @@ public class VideosController : ControllerBase
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize);
 
-            return Ok(ApiResponse<IEnumerable<VideoDto>>.Ok(paginatedVideos, "Список видео получен"));
+            return Ok(paginatedVideos);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<IEnumerable<VideoDto>>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -138,21 +183,21 @@ public class VideosController : ControllerBase
     /// <param name="id">ID видео</param>
     /// <returns>Информация о видео</returns>
     [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<VideoDto>>> GetVideo(Guid id)
+    public async Task<ActionResult<VideoDto>> GetVideo(Guid id)
     {
         try
         {
             var video = await _videoService.GetVideoByIdAsync(id);
             if (video == null)
             {
-                return NotFound(ApiResponse<VideoDto>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
-            return Ok(ApiResponse<VideoDto>.Ok(video, "Информация о видео получена"));
+            return Ok(video);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<VideoDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -164,7 +209,7 @@ public class VideosController : ControllerBase
     /// <returns>Обновленная информация о видео</returns>
     [HttpPut("{id}")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<VideoDto>>> UpdateVideo(Guid id, [FromBody] VideoDto videoDto)
+    public async Task<ActionResult<VideoDto>> UpdateVideo(Guid id, [FromBody] VideoDto videoDto)
     {
         try
         {
@@ -172,14 +217,14 @@ public class VideosController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
-                return Unauthorized(ApiResponse<VideoDto>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             // Проверка, что видео принадлежит пользователю
             var existingVideo = await _videoService.GetVideoByIdAsync(id);
             if (existingVideo == null)
             {
-                return NotFound(ApiResponse<VideoDto>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             if (existingVideo.User.Id != userGuid)
@@ -194,11 +239,11 @@ public class VideosController : ControllerBase
 
             await _videoService.UpdateVideoAsync(videoDto);
 
-            return Ok(ApiResponse<VideoDto>.Ok(videoDto, "Видео успешно обновлено"));
+            return Ok(videoDto);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<VideoDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -209,7 +254,7 @@ public class VideosController : ControllerBase
     /// <returns>Результат удаления</returns>
     [HttpDelete("{id}")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> DeleteVideo(Guid id)
+    public async Task<ActionResult<bool>> DeleteVideo(Guid id)
     {
         try
         {
@@ -217,14 +262,14 @@ public class VideosController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             // Проверка, что видео принадлежит пользователю
             var existingVideo = await _videoService.GetVideoByIdAsync(id);
             if (existingVideo == null)
             {
-                return NotFound(ApiResponse<bool>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             if (existingVideo.User.Id != userGuid)
@@ -235,11 +280,11 @@ public class VideosController : ControllerBase
             // Удаление видео
             await _videoService.DeleteVideoAsync(id);
 
-            return Ok(ApiResponse<bool>.Ok(true, "Видео успешно удалено"));
+            return Ok(true);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -251,25 +296,25 @@ public class VideosController : ControllerBase
     /// <param name="id">ID видео</param>
     /// <returns>Результат увеличения счетчика</returns>
     [HttpPost("{id}/view")]
-    public async Task<ActionResult<ApiResponse<bool>>> IncrementViewCount(Guid id)
+    public async Task<ActionResult<bool>> IncrementViewCount(Guid id)
     {
         try
         {
             var video = await _videoService.GetVideoByIdAsync(id);
             if (video == null)
             {
-                return NotFound(ApiResponse<bool>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             // Увеличение счетчика просмотров
             video.Views += 1;
             await _videoService.UpdateVideoAsync(video);
 
-            return Ok(ApiResponse<bool>.Ok(true, "Счетчик просмотров увеличен"));
+            return Ok(true);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -298,38 +343,47 @@ public class VideosController : ControllerBase
     /// <returns>Результат лайка</returns>
     [HttpPost("{id}/like")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> LikeVideo(Guid id)
+    public async Task<ActionResult<object>> LikeVideo(Guid id)
     {
         try
         {
             // Получение ID пользователя из токена
             if (!TryGetCurrentUserId(out var userGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var video = await GetVideoWithErrorHandling(id, Response);
             if (video == null)
             {
-                return NotFound(ApiResponse<bool>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             // Добавляем или обновляем реакцию пользователя
             await _videoService.AddOrUpdateReactionAsync(userGuid, id, "Like");
 
-            return Ok(ApiResponse<bool>.Ok(true, "Видео liked"));
+            // Получаем обновленный видео для возврата актуальных счетчиков
+            var updatedVideo = await _videoService.GetVideoByIdAsync(id);
+            
+            return Ok(new 
+            { 
+                likes = updatedVideo.Likes, 
+                dislikes = updatedVideo.Dislikes, 
+                is_liked = true, 
+                is_disliked = false 
+            });
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ApiResponse<bool>.Error(ex.Message));
+            return BadRequest(new { error = new { message = ex.Message } });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ApiResponse<bool>.Error(ex.Message));
+            return NotFound(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -340,38 +394,47 @@ public class VideosController : ControllerBase
     /// <returns>Результат дизлайка</returns>
     [HttpPost("{id}/dislike")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> DislikeVideo(Guid id)
+    public async Task<ActionResult<object>> DislikeVideo(Guid id)
     {
         try
         {
             // Получение ID пользователя из токена
             if (!TryGetCurrentUserId(out var userGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var video = await GetVideoWithErrorHandling(id, Response);
             if (video == null)
             {
-                return NotFound(ApiResponse<bool>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             // Добавляем или обновляем реакцию пользователя
             await _videoService.AddOrUpdateReactionAsync(userGuid, id, "Dislike");
 
-            return Ok(ApiResponse<bool>.Ok(true, "Видео disliked"));
+            // Получаем обновленный видео для возврата актуальных счетчиков
+            var updatedVideo = await _videoService.GetVideoByIdAsync(id);
+            
+            return Ok(new 
+            { 
+                likes = updatedVideo.Likes, 
+                dislikes = updatedVideo.Dislikes, 
+                is_liked = false, 
+                is_disliked = true 
+            });
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ApiResponse<bool>.Error(ex.Message));
+            return BadRequest(new { error = new { message = ex.Message } });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ApiResponse<bool>.Error(ex.Message));
+            return NotFound(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -382,34 +445,43 @@ public class VideosController : ControllerBase
     /// <returns>Результат удаления реакции</returns>
     [HttpDelete("{id}/reaction")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<bool>>> RemoveReaction(Guid id)
+    public async Task<ActionResult<object>> RemoveReaction(Guid id)
     {
         try
         {
             // Получение ID пользователя из токена
             if (!TryGetCurrentUserId(out var userGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var video = await GetVideoWithErrorHandling(id, Response);
             if (video == null)
             {
-                return NotFound(ApiResponse<bool>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             // Удаляем реакцию пользователя
             await _videoService.RemoveReactionAsync(userGuid, id);
 
-            return Ok(ApiResponse<bool>.Ok(true, "Реакция удалена"));
+            // Получаем обновленный видео для возврата актуальных счетчиков
+            var updatedVideo = await _videoService.GetVideoByIdAsync(id);
+            
+            return Ok(new 
+            { 
+                likes = updatedVideo.Likes, 
+                dislikes = updatedVideo.Dislikes, 
+                is_liked = false, 
+                is_disliked = false 
+            });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ApiResponse<bool>.Error(ex.Message));
+            return NotFound(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
     
@@ -420,20 +492,20 @@ public class VideosController : ControllerBase
     /// <returns>Реакция пользователя</returns>
     [HttpGet("{id}/reaction")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<VideoReactionDto>>> GetUserReaction(Guid id)
+    public async Task<ActionResult<VideoReactionDto>> GetUserReaction(Guid id)
     {
         try
         {
             // Получение ID пользователя из токена
             if (!TryGetCurrentUserId(out var userGuid))
             {
-                return Unauthorized(ApiResponse<VideoReactionDto>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var video = await GetVideoWithErrorHandling(id, Response);
             if (video == null)
             {
-                return NotFound(ApiResponse<VideoReactionDto>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             // Получаем реакцию пользователя
@@ -441,14 +513,14 @@ public class VideosController : ControllerBase
             
             if (reaction == null)
             {
-                return Ok(ApiResponse<VideoReactionDto>.Ok(null, "Реакция не найдена"));
+                return Ok(null);
             }
 
-            return Ok(ApiResponse<VideoReactionDto>.Ok(reaction, "Реакция получена"));
+            return Ok(reaction);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<VideoReactionDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -470,20 +542,20 @@ public class VideosController : ControllerBase
     /// <param name="id">ID видео</param>
     /// <returns>Статус обработки видео</returns>
     [HttpGet("{id}/processing-status")]
-    public async Task<ActionResult<ApiResponse<VideoProcessingStatusDto>>> GetVideoProcessingStatus(Guid id)
+    public async Task<ActionResult<VideoProcessingStatusDto>> GetVideoProcessingStatus(Guid id)
     {
         try
         {
             var status = await _videoService.GetVideoProcessingStatusAsync(id);
-            return Ok(ApiResponse<VideoProcessingStatusDto>.Ok(status, "Статус обработки видео получен"));
+            return Ok(status);
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ApiResponse<VideoProcessingStatusDto>.Error(ex.Message));
+            return NotFound(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<VideoProcessingStatusDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 }

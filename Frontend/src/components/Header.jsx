@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthModal } from '../hooks/useAuthModal';
 import Button from './Button';
 
 const Header = () => {
   const { isAuthenticated, user } = useAuth();
+  const { openAuthModal } = useAuthModal();
   
   return (
     <header className="sticky top-0 z-30 bg-black bg-opacity-80 backdrop-blur-sm border-b border-gray-800">
@@ -84,16 +86,12 @@ const Header = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/login">
-                    <Button variant="ghost" size="sm">
-                      Войти
-                    </Button>
-                  </Link>
-                  <Link to="/register">
-                    <Button variant="primary" size="sm">
-                      Регистрация
-                    </Button>
-                  </Link>
+                  <Button variant="ghost" size="sm" onClick={openAuthModal}>
+                    Войти
+                  </Button>
+                  <Button variant="primary" size="sm" onClick={openAuthModal}>
+                    Регистрация
+                  </Button>
                 </>
               )}
               

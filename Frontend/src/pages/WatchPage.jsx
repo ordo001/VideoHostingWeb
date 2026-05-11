@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
+import { useAuthModal } from '../hooks/useAuthModal';
 import videoService from '../services/videoService';
 import VideoPlayer from '../components/VideoPlayer';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
+import { normalizeId } from '../utils/adapterUtils';
 
 const WatchPage = () => {
   const { videoId } = useParams();
   const { user } = useAuth();
   const { showNotification } = useUI();
+  const { openAuthModal } = useAuthModal();
   
   const [videoData, setVideoData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,11 +23,13 @@ const WatchPage = () => {
   const [likes, setLikes] = useState(0);
   const [dislikes, setDislikes] = useState(0);
   const [views, setViews] = useState(0);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   
   // Комментарии к видео
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsCount, setCommentsCount] = useState(0);
   
   // Загружаем данные видео
   useEffect(() => {
@@ -35,11 +40,37 @@ const WatchPage = () => {
       setError(null);
       
       try {
+        // Адаптер уже нормализует данные
         const data = await videoService.getVideoById(videoId);
         setVideoData(data);
         setLikes(data.likes || 0);
         setDislikes(data.dislikes || 0);
         setViews(data.views || 0);
+        setIsSubscribed(data.is_subscribed || false);
+        
+        // Проверяем, что видео обрабатывается или готово к просмотру
+        if (data.processing_status === 'processing') {
+          // Если видео обрабатывается, проверяем периодически
+          const checkStatus = setInterval(async () => {
+            try {
+              const statusData = await videoService.getVideoProcessingStatus(videoId);
+              if (statusData.status === 'completed') {
+                clearInterval(checkStatus);
+                // Обновляем данные видео
+                const updatedData = await videoService.getVideoById(videoId);
+                setVideoData(updatedData);
+              } else if (statusData.status === 'failed') {
+                clearInterval(checkStatus);
+                setError('Обработка видео не удалась');
+              }
+            } catch (err) {
+              console.error('Ошибка при проверке статуса:', err);
+              clearInterval(checkStatus);
+            }
+          }, 5000); // Проверяем каждые 5 секунд
+          
+          return () => clearInterval(checkStatus);
+        }
         
         // Увеличиваем счетчик просмотров
         await videoService.viewVideo(videoId);
@@ -58,6 +89,39 @@ const WatchPage = () => {
     fetchVideoData();
   }, [videoId, showNotification]);
   
+  // Обработчик подписки на канал
+  const handleSubscribe = async () => {
+    if (!user) {
+      showNotification({
+        type: 'warning',
+        title: 'Требуется авторизация',
+        message: 'Войдите в аккаунт, чтобы подписаться на канал'
+      });
+      openAuthModal();
+      return;
+    }
+    
+    try {
+      // Здесь будет запрос к API для подписки/отписки от канала
+      // const response = await channelService.subscribeChannel(videoData.author.id);
+      
+      setIsSubscribed(!isSubscribed);
+      showNotification({
+        type: 'success',
+        title: !isSubscribed ? 'Подписка оформлена' : 'Подписка отменена',
+        message: !isSubscribed 
+          ? `Вы подписались на канал ${videoData.author.name}` 
+          : `Вы отписались от канала ${videoData.author.name}`
+      });
+    } catch (err) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка',
+        message: err.message
+      });
+    }
+  };
+  
   // Загружаем комментарии
   useEffect(() => {
     const fetchComments = async () => {
@@ -66,8 +130,10 @@ const WatchPage = () => {
       setCommentsLoading(true);
       
       try {
+        // Используем адаптированный сервис комментариев
         const data = await videoService.getVideoComments(videoId);
         setComments(data.comments || []);
+        setCommentsCount(data.count || 0);
       } catch (err) {
         showNotification({
           type: 'error',
@@ -92,16 +158,36 @@ const WatchPage = () => {
         title: 'Требуется авторизация',
         message: 'Войдите в аккаунт, чтобы поставить лайк'
       });
+      openAuthModal();
       return;
     }
     
     try {
       const response = await videoService.likeVideo(videoId);
-      setLikes(response.likes);
-      setDislikes(response.dislikes);
-      setIsLiked(!isLiked);
-      if (isDisliked) {
-        setIsDisliked(false);
+      
+      // Адаптация к формату ответа бэкенда
+      // Если бэкенд возвращает просто true, обновляем счетчики вручную
+      if (response === true || response.success === true) {
+        // Мы не знаем новые счетчики, так что просто инвертируем состояние
+        const wasLiked = isLiked;
+        const wasDisliked = isDisliked;
+        
+        setIsLiked(!wasLiked);
+        if (wasDisliked) {
+          setIsDisliked(false);
+          // Если был дизлайк, уменьшаем счетчик дизлайков и увеличиваем лайков
+          setDislikes(prev => Math.max(0, prev - 1));
+          setLikes(prev => prev + 1);
+        } else if (!wasLiked) {
+          // Если не было реакции, просто увеличиваем лайки
+          setLikes(prev => prev + 1);
+        }
+      } else {
+        // Если бэкенд возвращает обновленные счетчики
+        setLikes(response.likes || 0);
+        setDislikes(response.dislikes || 0);
+        setIsLiked(response.is_liked || false);
+        setIsDisliked(response.is_disliked || false);
       }
     } catch (err) {
       showNotification({
@@ -119,16 +205,36 @@ const WatchPage = () => {
         title: 'Требуется авторизация',
         message: 'Войдите в аккаунт, чтобы поставить дизлайк'
       });
+      openAuthModal();
       return;
     }
     
     try {
       const response = await videoService.dislikeVideo(videoId);
-      setLikes(response.likes);
-      setDislikes(response.dislikes);
-      setIsDisliked(!isDisliked);
-      if (isLiked) {
-        setIsLiked(false);
+      
+      // Адаптация к формату ответа бэкенда
+      // Если бэкенд возвращает просто true, обновляем счетчики вручную
+      if (response === true || response.success === true) {
+        // Мы не знаем новые счетчики, так что просто инвертируем состояние
+        const wasLiked = isLiked;
+        const wasDisliked = isDisliked;
+        
+        setIsDisliked(!wasDisliked);
+        if (wasLiked) {
+          setIsLiked(false);
+          // Если был лайк, уменьшаем счетчик лайков и увеличиваем дизлайков
+          setLikes(prev => Math.max(0, prev - 1));
+          setDislikes(prev => prev + 1);
+        } else if (!wasDisliked) {
+          // Если не было реакции, просто увеличиваем дизлайки
+          setDislikes(prev => prev + 1);
+        }
+      } else {
+        // Если бэкенд возвращает обновленные счетчики
+        setLikes(response.likes || 0);
+        setDislikes(response.dislikes || 0);
+        setIsLiked(response.is_liked || false);
+        setIsDisliked(response.is_disliked || false);
       }
     } catch (err) {
       showNotification({
@@ -147,24 +253,30 @@ const WatchPage = () => {
         title: 'Требуется авторизация',
         message: 'Войдите в аккаунт, чтобы оставить комментарий'
       });
+      openAuthModal();
       return;
     }
     
     if (!newComment.trim()) return;
     
     try {
+      // Временно комментарии не работают, т.к. эндпоинт не реализован в бэкенде
+      showNotification({
+        type: 'info',
+        title: 'Функция в разработке',
+        message: 'Комментарии будут доступны в ближайшее время'
+      });
+      
+      // Код для использования, когда эндпоинт будет реализован:
+      /*
       const comment = await videoService.addVideoComment(videoId, {
         text: newComment
       });
       
       setComments(prev => [comment, ...prev]);
+      setCommentsCount(prev => prev + 1);
       setNewComment('');
-      
-      showNotification({
-        type: 'success',
-        title: 'Комментарий добавлен',
-        message: 'Ваш комментарий успешно опубликован'
-      });
+      */
     } catch (err) {
       showNotification({
         type: 'error',
@@ -214,11 +326,39 @@ const WatchPage = () => {
           {/* Основная область просмотра */}
           <div className="lg:w-2/3">
             {/* Видеоплеер */}
-            <VideoPlayer
-              videoUrl={videoData.hls_url}
-              poster={videoData.thumbnail_url}
-              title={videoData.title}
-            />
+            {videoData.processing_status === 'processing' ? (
+              <div className="relative aspect-video bg-gray-900 rounded-2xl flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                    <div className="w-10 h-10 border-4 border-gray-700 border-t-primary rounded-full animate-spin"></div>
+                  </div>
+                  <h3 className="text-xl font-medium text-white mb-2">Видео обрабатывается</h3>
+                  <p className="text-gray-400">
+                    Пожалуйста, подождите. Обычно это занимает несколько минут.
+                  </p>
+                </div>
+              </div>
+            ) : videoData.processing_status === 'failed' ? (
+              <div className="relative aspect-video bg-gray-900 rounded-2xl flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-red-900 bg-opacity-20 flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-medium text-white mb-2">Ошибка обработки видео</h3>
+                  <p className="text-gray-400">
+                    Не удалось обработать это видео. Пожалуйста, попробуйте позже.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <VideoPlayer
+                videoUrl={videoData.hls_url}
+                poster={videoData.thumbnail_url}
+                title={videoData.title}
+              />
+            )}
             
             {/* Информация о видео */}
             <div className="mt-6">
@@ -245,8 +385,12 @@ const WatchPage = () => {
                       {videoData.author.subscribers_count?.toLocaleString() || 0} подписчиков
                     </div>
                   </div>
-                  <Button variant="primary" className="ml-4">
-                    Подписаться
+                  <Button 
+                    variant={isSubscribed ? "secondary" : "primary"} 
+                    className="ml-4"
+                    onClick={handleSubscribe}
+                  >
+                    {isSubscribed ? 'Отписаться' : 'Подписаться'}
                   </Button>
                 </div>
                 
@@ -294,7 +438,9 @@ const WatchPage = () => {
             
             {/* Комментарии */}
             <div className="mt-8">
-              <h2 className="text-xl font-bold mb-6">Комментарии ({comments.length})</h2>
+              <h2 className="text-xl font-bold mb-6">
+                Комментарии {!commentsLoading ? `(${commentsCount})` : ''}
+              </h2>
               
               <div className="mb-6">
                 <div className="flex">
