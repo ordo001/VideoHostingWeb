@@ -62,65 +62,6 @@ function App() {
       } catch (err) {
         console.error('Ошибка при загрузке видео:', err);
         setError(err.message);
-        
-        // Загружаем моковые данные при ошибке
-        const mockVideos = [
-          {
-            id: '1',
-            title: 'Введение в цифровое кино',
-            author: { name: 'Алексей Петров', avatar: null },
-            duration: 320,
-            views: 15000,
-            createdAt: '2026-05-01T10:00:00Z',
-            thumbnail: null
-          },
-          {
-            id: '2',
-            title: 'Технологии HDR в современном кино',
-            author: { name: 'Марина Соколова', avatar: null },
-            duration: 540,
-            views: 8900,
-            createdAt: '2026-05-05T14:30:00Z',
-            thumbnail: null
-          },
-          {
-            id: '3',
-            title: 'Работа с цветокоррекцией',
-            author: { name: 'Дмитрий Козлов', avatar: null },
-            duration: 720,
-            views: 12500,
-            createdAt: '2026-05-08T09:15:00Z',
-            thumbnail: null
-          },
-          {
-            id: '4',
-            title: 'Съемка в условиях низкой освещенности',
-            author: { name: 'Елена Волкова', avatar: null },
-            duration: 480,
-            views: 9800,
-            createdAt: '2026-05-09T16:45:00Z',
-            thumbnail: null
-          },
-          {
-            id: '5',
-            title: 'Монтаж документальных фильмов',
-            author: { name: 'Андрей Смирнов', avatar: null },
-            duration: 620,
-            views: 11300,
-            createdAt: '2026-05-10T11:20:00Z',
-            thumbnail: null
-          },
-          {
-            id: '6',
-            title: 'Работа со звуком в полевых условиях',
-            author: { name: 'Ольга Морозова', avatar: null },
-            duration: 390,
-            views: 7600,
-            createdAt: '2026-05-10T14:10:00Z',
-            thumbnail: null
-          }
-        ];
-        setVideos(mockVideos);
       } finally {
         setLoading(false);
       }

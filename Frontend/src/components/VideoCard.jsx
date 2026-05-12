@@ -71,9 +71,9 @@ const VideoCard = ({
     >
       {/* Thumbnail */}
       <div className="relative aspect-video overflow-hidden">
-        {thumbnail || thumbnail_url ? (
+        {thumbnail ? (
           <img 
-            src={thumbnail_url || thumbnail} 
+            src={thumbnail} 
             alt={title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
