@@ -120,15 +120,17 @@ const AuthModal = ({ isOpen, onClose, redirectTo }) => {
       // Закрываем модальное окно
       onClose()
       
-      // Перенаправляем пользователя если указан путь
+      // Перенаправляем пользователя если указан путь, иначе на главную
       if (redirectTo) {
         navigate(redirectTo)
+      } else {
+        navigate('/')
       }
     } catch (err) {
       showNotification({
         type: 'error',
         title: 'Ошибка',
-        message: error || 'Произошла ошибка при авторизации'
+        message: err.message || 'Произошла ошибка при авторизации'
       })
     }
   }

@@ -8,8 +8,14 @@ export const registerUser = createAsyncThunk(
     try {
       const response = await authService.register(userData);
       // Сохраняем токен в localStorage
-      localStorage.setItem('token', response.token);
-      return response;
+      if (response && response.token) {
+        localStorage.setItem('token', response.token);
+        return {
+          token: response.token,
+          user: response.user || response
+        };
+      }
+      throw new Error('Некорректный ответ сервера');
     } catch (error) {
       return rejectWithValue(error.message || 'Ошибка регистрации');
     }
@@ -22,8 +28,14 @@ export const loginUser = createAsyncThunk(
     try {
       const response = await authService.login(credentials);
       // Сохраняем токен в localStorage
-      localStorage.setItem('token', response.token);
-      return response;
+      if (response && response.token) {
+        localStorage.setItem('token', response.token);
+        return {
+          token: response.token,
+          user: response.user || response
+        };
+      }
+      throw new Error('Некорректный ответ сервера');
     } catch (error) {
       return rejectWithValue(error.message || 'Ошибка входа');
     }
@@ -39,7 +51,10 @@ export const fetchCurrentUser = createAsyncThunk(
         throw new Error('Нет токена');
       }
       const response = await authService.getCurrentUser(token);
-      return response;
+      return {
+        token,
+        user: response
+      };
     } catch (error) {
       // Удаляем токен при ошибке
       localStorage.removeItem('token');
@@ -111,7 +126,8 @@ const authSlice = createSlice({
       .addCase(fetchCurrentUser.fulfilled, (state, action) => {
         state.loading = false;
         state.isAuthenticated = true;
-        state.user = action.payload;
+        state.token = action.payload.token || state.token;
+        state.user = action.payload.user;
       })
       .addCase(fetchCurrentUser.rejected, (state, action) => {
         state.loading = false;

@@ -86,12 +86,16 @@ const Header = () => {
                 </>
               ) : (
                 <>
-                  <Button variant="ghost" size="sm" onClick={openAuthModal}>
-                    Войти
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={openAuthModal}>
-                    Регистрация
-                  </Button>
+                  <Link to="/login">
+                    <Button variant="ghost" size="sm">
+                      Войти
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button variant="primary" size="sm">
+                      Регистрация
+                    </Button>
+                  </Link>
                 </>
               )}
               
