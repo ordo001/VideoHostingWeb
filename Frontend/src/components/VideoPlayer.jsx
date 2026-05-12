@@ -34,21 +34,52 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
   // Инициализация HLS
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !videoUrl) return;
+    if (!video) return;
     
-    // Если браузер поддерживает нативный HLS
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    // Очищаем предыдущие источники и HLS
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    
+    // Сбрасываем источник
+    video.src = '';
+    video.removeAttribute('src');
+    
+    if (!videoUrl) {
+      console.warn('No video URL provided');
+      return;
+    }
+    
+    console.log('Loading video from URL:', videoUrl);
+    
+    // Проверяем, является ли URL HLS потоком
+    const isHlsStream = videoUrl.includes('.m3u8');
+    
+    // Если браузер поддерживает нативный HLS и это HLS поток
+    if (isHlsStream && video.canPlayType('application/vnd.apple.mpegurl')) {
+      console.log('Using native HLS support');
       video.src = videoUrl;
       initializeVideoEvents();
       return;
     }
     
-    // Используем HLS.js
+    // Если это не HLS поток или браузер не поддерживает HLS нативно
+    if (!isHlsStream) {
+      console.log('Loading regular video file');
+      video.src = videoUrl;
+      initializeVideoEvents();
+      return;
+    }
+    
+    // Используем HLS.js для HLS потоков
     if (Hls.isSupported()) {
+      console.log('Using HLS.js');
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
-        backBufferLength: 90
+        backBufferLength: 90,
+        debug: false
       });
       
       hlsRef.current = hls;
@@ -56,6 +87,7 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
       hls.attachMedia(video);
       
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('HLS manifest parsed');
         initializeVideoEvents();
       });
       
@@ -63,15 +95,14 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              // Пытаемся восстановить сетевую ошибку
+              console.error('Network error, trying to recover...');
               hls.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
-              // Пытаемся восстановить медиа ошибку
+              console.error('Media error, trying to recover...');
               hls.recoverMediaError();
               break;
             default:
-              // Невозможно восстановить
               console.error('Fatal HLS error encountered', data);
               break;
           }
@@ -79,12 +110,15 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
       });
     } else {
       // HLS не поддерживается
-      console.error('HLS is not supported in this browser');
+      console.warn('HLS is not supported in this browser, trying to load video directly');
+      video.src = videoUrl;
+      initializeVideoEvents();
     }
     
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
+        hlsRef.current = null;
       }
     };
   }, [videoUrl]);
@@ -125,6 +159,34 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
       if (onEnded) onEnded();
     };
     
+    const handleError = (e) => {
+      const errorCode = video.error ? video.error.code : 'unknown';
+      const errorMessage = video.error ? video.error.message : 'Unknown error';
+      console.error('Video error occurred:', errorCode, errorMessage);
+      
+      // Для разных ошибок выводим разную информацию
+      switch (errorCode) {
+        case video.error.MEDIA_ERR_ABORTED:
+          console.error('Video playback aborted');
+          break;
+        case video.error.MEDIA_ERR_NETWORK:
+          console.error('Network error while loading video');
+          break;
+        case video.error.MEDIA_ERR_DECODE:
+          console.error('Video decoding error');
+          break;
+        case video.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+          console.error('Video format or source not supported');
+          // Если это ошибка формата, возможно, стоит попробовать другой формат
+          break;
+        default:
+          console.error('Unknown video error');
+      }
+      
+      setIsBuffering(false);
+      setIsPlaying(false);
+    };
+    
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('timeupdate', handleTimeUpdate);
@@ -132,6 +194,7 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('ended', handleEnded);
+    video.addEventListener('error', handleError);
     
     return () => {
       video.removeEventListener('play', handlePlay);
@@ -141,6 +204,7 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('error', handleError);
     };
   };
   

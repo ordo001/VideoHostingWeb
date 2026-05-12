@@ -4,10 +4,43 @@ import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { useAuthModal } from '../hooks/useAuthModal';
 import videoService from '../services/videoService';
+import channelService from '../services/channelService';
 import VideoPlayer from '../components/VideoPlayer';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
 import { normalizeId } from '../utils/adapterUtils';
+
+// Функция форматирования даты загрузки видео
+const formatUploadDate = (dateString) => {
+  if (!dateString) return 'Неизвестная дата';
+  
+  const uploadDate = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now - uploadDate);
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    if (diffHours === 0) {
+      const diffMinutes = Math.floor(diffTime / (1000 * 60));
+      return diffMinutes === 0 ? 'Только что' : `${diffMinutes} минут назад`;
+    }
+    return `${diffHours} часов назад`;
+  } else if (diffDays === 1) {
+    return 'Вчера';
+  } else if (diffDays < 7) {
+    return `${diffDays} дней назад`;
+  } else if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} ${weeks === 1 ? 'неделю' : weeks < 5 ? 'недели' : 'недель'} назад`;
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} ${months === 1 ? 'месяц' : months < 5 ? 'месяца' : 'месяцев'} назад`;
+  } else {
+    const years = Math.floor(diffDays / 365);
+    return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'} назад`;
+  }
+};
 
 const WatchPage = () => {
   const { videoId } = useParams();
@@ -101,9 +134,23 @@ const WatchPage = () => {
       return;
     }
     
+    if (!videoData?.author?.id) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка',
+        message: 'Не удалось получить информацию о канале'
+      });
+      return;
+    }
+    
     try {
-      // Здесь будет запрос к API для подписки/отписки от канала
-      // const response = await channelService.subscribeChannel(videoData.author.id);
+      let response;
+      
+      if (isSubscribed) {
+        response = await channelService.unsubscribeChannel(videoData.author.id);
+      } else {
+        response = await channelService.subscribeChannel(videoData.author.id);
+      }
       
       setIsSubscribed(!isSubscribed);
       showNotification({
@@ -168,18 +215,24 @@ const WatchPage = () => {
       // Адаптация к формату ответа бэкенда
       // Если бэкенд возвращает просто true, обновляем счетчики вручную
       if (response === true || response.success === true) {
-        // Мы не знаем новые счетчики, так что просто инвертируем состояние
         const wasLiked = isLiked;
         const wasDisliked = isDisliked;
         
-        setIsLiked(!wasLiked);
-        if (wasDisliked) {
+        // Если лайк уже стоит, убираем его
+        if (wasLiked) {
+          setIsLiked(false);
+          setLikes(prev => Math.max(0, prev - 1));
+        } 
+        // Если стоит дизлайк, заменяем его лайком
+        else if (wasDisliked) {
           setIsDisliked(false);
-          // Если был дизлайк, уменьшаем счетчик дизлайков и увеличиваем лайков
+          setIsLiked(true);
           setDislikes(prev => Math.max(0, prev - 1));
           setLikes(prev => prev + 1);
-        } else if (!wasLiked) {
-          // Если не было реакции, просто увеличиваем лайки
+        } 
+        // Если нет реакции, ставим лайк
+        else {
+          setIsLiked(true);
           setLikes(prev => prev + 1);
         }
       } else {
@@ -215,18 +268,24 @@ const WatchPage = () => {
       // Адаптация к формату ответа бэкенда
       // Если бэкенд возвращает просто true, обновляем счетчики вручную
       if (response === true || response.success === true) {
-        // Мы не знаем новые счетчики, так что просто инвертируем состояние
         const wasLiked = isLiked;
         const wasDisliked = isDisliked;
         
-        setIsDisliked(!wasDisliked);
-        if (wasLiked) {
+        // Если дизлайк уже стоит, убираем его
+        if (wasDisliked) {
+          setIsDisliked(false);
+          setDislikes(prev => Math.max(0, prev - 1));
+        } 
+        // Если стоит лайк, заменяем его дизлайком
+        else if (wasLiked) {
           setIsLiked(false);
-          // Если был лайк, уменьшаем счетчик лайков и увеличиваем дизлайков
+          setIsDisliked(true);
           setLikes(prev => Math.max(0, prev - 1));
           setDislikes(prev => prev + 1);
-        } else if (!wasDisliked) {
-          // Если не было реакции, просто увеличиваем дизлайки
+        } 
+        // Если нет реакции, ставим дизлайк
+        else {
+          setIsDisliked(true);
           setDislikes(prev => prev + 1);
         }
       } else {
@@ -379,22 +438,22 @@ const WatchPage = () => {
                       </span>
                     )}
                   </div>
-                  <div>
-                    <div className="font-medium">{videoData.author.name}</div>
-                    <div className="text-sm text-gray-400">
+                  <div className="text-left">
+                    <div className="font-medium text-left">{videoData.author.name}</div>
+                    <div className="text-sm text-gray-400 text-left">
                       {videoData.author.subscribers_count?.toLocaleString() || 0} подписчиков
                     </div>
                   </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
                   <Button 
-                    variant={isSubscribed ? "secondary" : "primary"} 
-                    className="ml-4"
+                    variant={isSubscribed ? "secondary" : "primary"}
                     onClick={handleSubscribe}
                   >
                     {isSubscribed ? 'Отписаться' : 'Подписаться'}
                   </Button>
-                </div>
-                
-                <div className="flex items-center space-x-2">
+                  
                   <Button 
                     variant={isLiked ? "primary" : "secondary"}
                     onClick={handleLike}
@@ -430,7 +489,7 @@ const WatchPage = () => {
                 <div className="flex text-sm text-gray-400 mb-2">
                   <span>{views.toLocaleString()} просмотров</span>
                   <span className="mx-2">•</span>
-                  <span>5 дней назад</span>
+                  <span>{formatUploadDate(videoData.created_at)}</span>
                 </div>
                 <p className="text-gray-300">{videoData.description}</p>
               </div>

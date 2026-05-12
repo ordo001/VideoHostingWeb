@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
+import { handleApiResponse } from '../utils/adapterUtils';
 
 // Создаем экземпляр axios для работы с каналами
 const channelApiClient = axios.create({
@@ -22,79 +23,63 @@ channelApiClient.interceptors.request.use(
 );
 
 export const channelService = {
-  // Получение информации о канале по ID
+  // Подписка на канал
+  subscribeChannel: async (channelId) => {
+    try {
+      const response = await channelApiClient.post(`/channels/${channelId}/subscribe`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка подписки на канал');
+    }
+  },
+  
+  // Отписка от канала
+  unsubscribeChannel: async (channelId) => {
+    try {
+      const response = await channelApiClient.delete(`/channels/${channelId}/subscribe`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка отписки от канала');
+    }
+  },
+  
+  // Проверка статуса подписки
+  checkSubscriptionStatus: async (channelId) => {
+    try {
+      const response = await channelApiClient.get(`/channels/${channelId}/subscribe`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+      return response.data;
+    } catch (error) {
+      // Если подписка не найдена, возвращаем false
+      if (error.response?.status === 404) {
+        return { isSubscribed: false };
+      }
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка проверки статуса подписки');
+    }
+  },
+  
+  // Получение информации о канале
   getChannelById: async (channelId) => {
     try {
       const response = await channelApiClient.get(`/channels/${channelId}`);
-      return response.data;
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      return data;
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения информации о канале');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения информации о канале');
     }
-  },
-  
-  // Получение видео канала
-  getChannelVideos: async (channelId, params = {}) => {
-    try {
-      const response = await channelApiClient.get(`/channels/${channelId}/videos`, { params });
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения видео канала');
-    }
-  },
-  
-  // Получение информации о своем канале
-  getMyChannel: async () => {
-    try {
-      const response = await channelApiClient.get('/channels/me');
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения информации о вашем канале');
-    }
-  },
-  
-  // Обновление информации о своем канале
-  updateMyChannel: async (channelData) => {
-    try {
-      const response = await channelApiClient.put('/channels/me', channelData);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка обновления информации о канале');
-    }
-  },
-  
-  // Загрузка аватара канала
-  uploadChannelAvatar: async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append('avatar', file);
-      
-      const response = await channelApiClient.post('/channels/avatar', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка загрузки аватара канала');
-    }
-  },
-  
-  // Загрузка баннера канала
-  uploadChannelBanner: async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append('banner', file);
-      
-      const response = await channelApiClient.post('/channels/banner', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка загрузки баннера канала');
-    }
-  },
+  }
 };
 
 export default channelService;
