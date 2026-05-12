@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
+const BASE_URL = 'http://localhost:9000';
 const VideoCard = ({ 
   id = '', // Обеспечиваем значение по умолчанию
   thumbnail, 
@@ -73,7 +74,7 @@ const VideoCard = ({
       <div className="relative aspect-video overflow-hidden">
         {thumbnail ? (
           <img 
-            src={thumbnail} 
+            src={`${BASE_URL}/${thumbnail}`} 
             alt={title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />

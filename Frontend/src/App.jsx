@@ -111,7 +111,8 @@ function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {videos && videos.length > 0 ? (
                       videos.slice(0, 3).map(video => (
-                        <VideoCard 
+                        <VideoCard
+                          thumbnail={video.thumbnail_url}
                           key={video.id} 
                           {...video} 
                           onClick={() => window.open(`/watch/${video.id}`, '_self')}
@@ -140,7 +141,8 @@ function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {videos && videos.length > 0 ? (
                       videos.slice(3, 6).map(video => (
-                        <VideoCard 
+                        <VideoCard
+                          thumbnail={video.thumbnail_url}
                           key={video.id} 
                           {...video} 
                           onClick={() => window.open(`/watch/${video.id}`, '_self')}
