@@ -1,225 +1,430 @@
-import React, { useState, useRef } from 'react';
-import ReactHlsPlayer from 'react-hls-player';
+import React, { useRef, useEffect, useState } from 'react';
+import Hls from 'hls.js';
+import hlsService from '../services/hlsService';
 
-const VideoPlayer = ({ videoUrl, poster, title }) => {
-  const playerRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
+const VideoPlayer = ({ 
+  videoUrl, 
+  poster, 
+  title, 
+  autoPlay = false, 
+  controls = true,
+  muted = false,
+  loop = false,
+  className = '',
+  onTimeUpdate,
+  onLoadedMetadata,
+  onEnded
+}) => {
+  const videoRef = useRef(null);
+  const hlsRef = useRef(null);
+  const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableLevels, setAvailableLevels] = useState([]);
+  const [currentLevel, setCurrentLevel] = useState(-1); // -1 = auto
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const cleanupSegmentLoader = useRef(null); // Ссылка на функцию очистки
 
-  // Форматирование времени
-  const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
+  // Очистка ресурсов
+  const cleanup = () => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+  };
+
+  // Получение мастер-плейлиста через API с оптимизацией загрузки сегментов
+  const fetchMasterPlaylist = async () => {
+    try {
+      if (!videoUrl) {
+        throw new Error('Video URL is not provided');
+      }
+      
+      // Используем hlsService для оптимизированной загрузки
+      const playlist = await hlsService.getMasterPlaylist(videoUrl);
+      return playlist;
+    } catch (err) {
+      console.error('Error fetching master playlist:', err);
+      // Если hlsService не смог загрузить, пробуем прямой запрос
+      try {
+        const response = await fetch(videoUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+      } catch (fallbackErr) {
+        console.error('Fallback fetch also failed:', fallbackErr);
+        throw err;
+      }
+    }
+  };
+
+  // Функция для оптимизации загрузки сегментов напрямую из хранилища
+  const setupSegmentLoader = (hlsInstance) => {
+    // Карта для отслеживания загруженных сегментов
+    const loadedSegments = new Map();
     
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    // Настройка кастомного загрузчика сегментов для прямого доступа к S3
+    const originalFragmentLoader = hlsInstance.config.loader;
+    
+    // Устанавливаем кастомный загрузчик из hlsService
+    hlsInstance.config.loader = hlsService.createCustomLoader();
+    
+    // Настраиваем обработчик для оптимизации загрузки
+    hlsInstance.on(Hls.Events.FRAG_LOADING, (event, data) => {
+      const { frag } = data;
+      const segKey = `${frag.level}-${frag.sn}`;
+      
+      // Регистрируем попытку загрузки
+      console.log(`Loading fragment: Level ${frag.level}, SN ${frag.sn}`);
+      
+      // Проверяем, есть ли приоритетные сегменты, которые нужно загрузить первыми
+      if (frag.sn % 10 === 0) {
+        // Каждый 10-й сегмент - ключевой, приоритетный
+        console.log(`Priority fragment detected: ${segKey}`);
+      }
+      
+      // Определяем время ожидания для сегмента в зависимости от его важности
+      frag.stats.trequest = performance.now();
+    });
+
+    // Обработка успешной загрузки сегментов
+    hlsInstance.on(Hls.Events.FRAG_LOADED, (event, data) => {
+      const { frag } = data;
+      const segKey = `${frag.level}-${frag.sn}`;
+      const loadTime = performance.now() - frag.stats.trequest;
+      
+      // Сохраняем информацию о загруженном сегменте
+      loadedSegments.set(segKey, {
+        loadTime,
+        size: data.stats.loaded,
+        timestamp: Date.now()
+      });
+      
+      console.log(`Fragment loaded: ${segKey} in ${loadTime.toFixed(2)}ms`);
+      
+      // Оптимизация: если загрузка была медленной, увеличиваем буфер
+      if (loadTime > 2000) { // Больше 2 секунд
+        const currentBuffer = hlsInstance.config.maxBufferLength;
+        console.log(`Slow fragment detected (${loadTime.toFixed(2)}ms), increasing buffer`);
+        hlsInstance.config.maxBufferLength = Math.min(currentBuffer + 5, 60); // Увеличиваем до 60 сек
+      }
+    });
+
+    // Обработка ошибок при загрузке сегментов
+    hlsInstance.on(Hls.Events.FRAG_LOAD_ERROR, (event, data) => {
+      const { frag, details } = data;
+      const segKey = `${frag.level}-${frag.sn}`;
+      
+      console.error(`Error loading fragment: ${segKey}`, details);
+      
+      // Анализируем тип ошибки и принимаем соответствующие меры
+      switch (details) {
+        case 'timeout':
+          // Проблема с таймаутом - возможно, плохое соединение
+          console.log('Timeout error, switching to lower quality');
+          if (frag.level > 0) {
+            // Автоматическое понижение качества при проблемах с загрузкой
+            hlsInstance.currentLevel = frag.level - 1;
+          }
+          // Увеличиваем таймаут для следующей попытки
+          hlsInstance.config.fragLoadingTimeOut = Math.min(hlsInstance.config.fragLoadingTimeOut * 1.5, 60000);
+          break;
+          
+        case 'networkError':
+          // Ошибка сети - увеличиваем количество попыток
+          console.log('Network error, increasing retry count');
+          hlsInstance.config.fragLoadingMaxRetry = Math.min(hlsInstance.config.fragLoadingMaxRetry + 1, 10);
+          break;
+          
+        case 'abortError':
+          // Ошибка прерывания - возможно, пользователь переключил качество
+          console.log('Fragment loading aborted, likely due to quality change');
+          break;
+          
+        default:
+          // Другие ошибки - понижаем качество
+          console.log('Unknown error, switching to lower quality');
+          if (frag.level > 0) {
+            hlsInstance.currentLevel = frag.level - 1;
+          }
+      }
+    });
+
+    // Обработка изменения уровня качества
+    hlsInstance.on(Hls.Events.LEVEL_SWITCHING, (event, data) => {
+      const { level } = data;
+      console.log(`Switching to quality level: ${level}`);
+      
+      // Сбрасываем счетчик ошибок при переключении качества
+      hlsInstance.config.fragLoadingMaxRetry = 4;
+      hlsInstance.config.fragLoadingTimeOut = 30000;
+      
+      // Очищаем кэш старых сегментов при переключении на другое качество
+      if (level !== hlsInstance.previousLevel) {
+        loadedSegments.clear();
+      }
+    });
+
+    // Возвращаем функцию очистки для освобождения ресурсов
+    return () => {
+      loadedSegments.clear();
+      // Восстанавливаем оригинальный загрузчик
+      hlsInstance.config.loader = originalFragmentLoader;
+    };
+  };
+
+  // Функция для предварительной загрузки мастер-плейлиста
+  const preloadMasterPlaylist = async (hlsInstance) => {
+    try {
+      const playlist = await fetchMasterPlaylist();
+      console.log('Master playlist loaded:', playlist);
+      
+      // Анализ плейлиста для определения доступных вариантов качества
+      // Это может помочь оптимизировать выбор начального качества
+      return playlist;
+    } catch (error) {
+      console.error('Error preloading master playlist:', error);
+      return null;
     }
-    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Обработчики событий плеера
-  const handlePlay = () => {
-    setIsPlaying(true);
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
 
-  const handlePause = () => {
-    setIsPlaying(false);
-  };
+    setIsLoading(true);
+    setError(null);
 
-  const handleTimeUpdate = () => {
-    if (playerRef.current) {
-      setCurrentTime(playerRef.current.currentTime);
-    }
-  };
+    // Если браузер поддерживает HLS нативно
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = videoUrl;
+      video.addEventListener('loadedmetadata', () => setIsLoading(false));
+      video.addEventListener('error', (e) => {
+        setError('Ошибка загрузки video');
+        setIsLoading(false);
+      });
+    } 
+    // Иначе используем hls.js
+    else if (Hls.isSupported()) {
+      cleanup();
+      
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 90,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 300,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: Infinity,
+        // Оптимизация для загрузки сегментов из S3
+        fragLoadingTimeOut: 30000,
+        fragLoadingMaxRetry: 4,
+        manifestLoadingTimeOut: 20000,
+        manifestLoadingMaxRetry: 4,
+        // Кастомный загрузчик для прямого доступа к сегментам из хранилища
+        loader: Hls.DefaultConfig.loader,
+      });
 
-  const handleLoadedMetadata = () => {
-    if (playerRef.current) {
-      setDuration(playerRef.current.duration);
+      // Настраиваем оптимизированную загрузку сегментов
+      cleanupSegmentLoader.current = setupSegmentLoader(hls);
+      
+      // Предварительная загрузка мастер-плейлиста для оптимизации
+      preloadMasterPlaylist(hls).then(() => {
+        hls.loadSource(videoUrl);
+        hls.attachMedia(video);
+      }).catch(() => {
+        // Если предварительная загрузка не удалась, загружаем обычным способом
+        hls.loadSource(videoUrl);
+        hls.attachMedia(video);
+      });
+
+      // Обработка ошибок
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error('HLS error:', data);
+        
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              setError('Ошибка сети при загрузке видео');
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              setError('Ошибка воспроизведения видео');
+              break;
+            default:
+              setError('Произошла ошибка при загрузке видео');
+              break;
+          }
+          setIsLoading(false);
+        }
+      });
+
+      // Успешная загрузка
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setIsLoading(false);
+        
+        // Получаем доступные уровни качества
+        const levels = hls.levels.map(level => ({
+          height: level.height,
+          bitrate: level.bitrate,
+          name: `${level.height}p`,
+          levelIndex: hls.levels.indexOf(level)
+        }));
+        
+        setAvailableLevels(levels);
+        
+        if (autoPlay) {
+          video.play().catch(err => {
+            console.error('Autoplay error:', err);
+          });
+        }
+      });
+
+      // Обработка изменения уровня качества
+      hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+        setCurrentLevel(data.level);
+      });
+
+      hlsRef.current = hls;
+    } 
+    // Браузер не поддерживает HLS
+    else {
+      setError('Ваш браузер не поддерживает HLS видео');
       setIsLoading(false);
     }
-  };
 
-  const handleError = (e) => {
-    console.error('Video error:', e);
-    setIsLoading(false);
-  };
+    // Определяем обработчики событий
+    if (onTimeUpdate) {
+      video.addEventListener('timeupdate', onTimeUpdate);
+    }
+    
+    if (onLoadedMetadata) {
+      video.addEventListener('loadedmetadata', onLoadedMetadata);
+    }
+    
+    if (onEnded) {
+      video.addEventListener('ended', onEnded);
+    }
 
-  const handleWaiting = () => {
-    setIsLoading(true);
-  };
-
-  const handlePlaying = () => {
-    setIsLoading(false);
-  };
-
-  // Управление воспроизведением
-  const togglePlay = () => {
-    if (!playerRef.current) return;
-
-    if (isPlaying) {
-      playerRef.current.pause();
-    } else {
-      playerRef.current.play().catch(error => {
-        console.error('Error playing video:', error);
-      });
+    // Функция для смены качества видео
+  const changeQuality = (levelIndex) => {
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = levelIndex;
+      setCurrentLevel(levelIndex);
+      setShowQualityMenu(false);
     }
   };
 
-  // Перемотка
-  const handleSeek = (e) => {
-    if (!playerRef.current) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    const time = pos * duration;
-
-    playerRef.current.currentTime = time;
-    setCurrentTime(time);
-  };
-
-  // Управление громкостью
-  const handleVolumeChange = (e) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    setIsMuted(newVolume === 0);
-
-    if (playerRef.current) {
-      playerRef.current.volume = newVolume;
-      playerRef.current.muted = newVolume === 0;
+  // Обработчик для отображения названия текущего качества
+  const getQualityText = () => {
+    if (currentLevel === -1) return 'Авто';
+    if (currentLevel < availableLevels.length) {
+      return availableLevels[currentLevel].name;
     }
+    return 'Авто';
   };
 
-  // Переключение звука
-  const toggleMute = () => {
-    if (!playerRef.current) return;
-
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    playerRef.current.muted = newMuted;
-
-    if (newMuted) {
-      setVolume(0);
-    } else {
-      setVolume(playerRef.current.volume || 1);
-    }
-  };
+  return () => {
+      cleanup();
+      
+      // Очищаем ресурсы, связанные с загрузчиком сегментов
+      if (cleanupSegmentLoader.current) {
+        cleanupSegmentLoader.current();
+        cleanupSegmentLoader.current = null;
+      }
+      
+      if (onTimeUpdate) {
+        video.removeEventListener('timeupdate', onTimeUpdate);
+      }
+      
+      if (onLoadedMetadata) {
+        video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      }
+      
+      if (onEnded) {
+        video.removeEventListener('ended', onEnded);
+      }
+    };
+  }, [videoUrl, autoPlay, onTimeUpdate, onLoadedMetadata, onEnded, currentLevel, availableLevels]);
 
   return (
-    <div className="relative bg-black rounded-2xl overflow-hidden">
-      {/* HLS плеер */}
-      <ReactHlsPlayer
-        playerRef={playerRef}
-        src={videoUrl}
+    <div className={`relative bg-black aspect-video rounded-xl overflow-hidden ${className}`}>
+      <video
+        ref={videoRef}
+        className="w-full h-full"
         poster={poster}
-        className="w-full aspect-video"
+        muted={muted}
+        loop={loop}
+        controls={controls}
+        title={title || 'Видео'}
         playsInline
-        controls={false}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onError={handleError}
-        onWaiting={handleWaiting}
-        onPlaying={handlePlaying}
+        preload="metadata"
       />
-
-      {/* Индикатор загрузки */}
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-gray-700 border-t-primary rounded-full animate-spin"></div>
+      
+      {/* Кнопка выбора качества видео */}
+      {controls && availableLevels.length > 0 && (
+        <div className="absolute bottom-4 right-4">
+          <div className="relative">
+            <button
+              className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white px-3 py-1 rounded text-sm transition-all"
+              onClick={() => setShowQualityMenu(!showQualityMenu)}
+            >
+              {getQualityText()}
+              <svg className="inline-block w-4 h-4 ml-1 fill-current" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+            
+            {/* Меню выбора качества */}
+            {showQualityMenu && (
+              <div className="absolute bottom-full mb-2 right-0 bg-black bg-opacity-90 rounded shadow-lg min-w-full z-10">
+                <button
+                  className={`block w-full text-left px-3 py-2 text-sm hover:bg-white hover:bg-opacity-10 ${currentLevel === -1 ? 'text-blue-400' : 'text-white'}`}
+                  onClick={() => changeQuality(-1)}
+                >
+                  Авто
+                </button>
+                {availableLevels.map((level) => (
+                  <button
+                    key={level.levelIndex}
+                    className={`block w-full text-left px-3 py-2 text-sm hover:bg-white hover:bg-opacity-10 ${currentLevel === level.levelIndex ? 'text-blue-400' : 'text-white'}`}
+                    onClick={() => changeQuality(level.levelIndex)}
+                  >
+                    {level.name} ({Math.round(level.bitrate / 1000)}k)
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
-
-      {/* Контролы плеера */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent flex flex-col justify-end">
-        {/* Прогресс бар */}
-        <div 
-          className="px-4 py-2 cursor-pointer group"
-          onClick={handleSeek}
-        >
-          <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-primary rounded-full relative"
-              style={{ width: `${(currentTime / duration) * 100}%` }}
-            >
-              <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            </div>
+      
+      {/* Индикатор загрузки */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
+            <div className="w-10 h-10 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin"></div>
           </div>
         </div>
-
-        {/* Кнопки управления */}
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={togglePlay}
-              className="text-white hover:text-primary focus:outline-none"
-            >
-              {isPlaying ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-            </button>
-
-            <button 
-              onClick={toggleMute}
-              className="text-white hover:text-primary focus:outline-none"
-            >
-              {isMuted || volume === 0 ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                </svg>
-              ) : volume > 0.5 ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M12 6a9 9 0 010 12" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-              )}
-            </button>
-
-            <div className="flex items-center w-24">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={handleVolumeChange}
-                className="w-full accent-primary"
-              />
+      )}
+      
+      {/* Сообщение об ошибке */}
+      {error && (
+        <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center">
+          <div className="bg-gray-900 rounded-xl p-6 max-w-sm mx-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-red-500 bg-opacity-20 flex	items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
-
-            <div className="text-sm text-white">
-              <span>{formatTime(currentTime)}</span>
-              <span className="mx-1">/</span>
-              <span>{formatTime(duration)}</span>
-            </div>
+            <h3 className="text-white font-medium mb-2">Ошибка воспроизведения</h3>
+            <p className="text-gray-400 text-sm">{error}</p>
+            <button 
+              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              onClick={() => window.location.reload()}
+            >
+              Обновить
+            </button>
           </div>
-        </div>
-      </div>
-
-      {/* Заголовок видео */}
-      {title && (
-        <div className="absolute top-4 left-4">
-          <h3 className="text-lg font-bold text-white bg-black bg-opacity-50 px-3 py-1 rounded-lg">
-            {title}
-          </h3>
         </div>
       )}
     </div>
