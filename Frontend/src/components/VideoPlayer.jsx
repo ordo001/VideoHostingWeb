@@ -39,7 +39,11 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
       url.includes('.m3u8') || 
       url.includes('playlist') || 
       url.includes('/hls/') ||
-      url.includes('manifest')
+      url.includes('manifest') ||
+      url.endsWith('master.m3u8') ||
+      url.includes('/streaming/') ||
+      url.includes('localhost:9000') ||
+      url.includes('minio:')
     );
   };
   
@@ -185,34 +189,30 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
     console.log('Loading video from URL:', videoUrl);
     
     // Улучшенная проверка типа источника видео
-    const isHlsStream = this.isHlsStream(videoUrl);
+    const isHlsStreamResult = isHlsStream(videoUrl);
     const canPlayNatively = video.canPlayType('application/vnd.apple.mpegurl');
     
-    // Если браузер поддерживает нативный HLS и это HLS поток
-    if (isHlsStream && canPlayNatively) {
+// Если браузер поддерживает нативный HLS и это HLS поток
+    if (isHlsStreamResult && canPlayNatively) {
       console.log('Using native HLS support');
-      this.loadVideoNatively(video, videoUrl);
-      initializeVideoEvents();
-      return;
-    }
-    
-    // Если это не HLS поток или браузер не поддерживает HLS нативно
-    if (!isHlsStream) {
-      console.log('Loading regular video file');
-      this.loadVideoNatively(video, videoUrl);
+      loadVideoNatively(video, videoUrl);
       initializeVideoEvents();
       return;
     }
     
     // Используем HLS.js для HLS потоков
-    if (Hls.isSupported()) {
+    if (isHlsStreamResult && Hls.isSupported()) {
       console.log('Using HLS.js');
-      this.initializeHlsPlayer(video, videoUrl, initializeVideoEvents);
-    } else {
-      // HLS не поддерживается
-      console.warn('HLS is not supported in this browser, trying to load video directly');
-      this.loadVideoNatively(video, videoUrl);
+      initializeHlsPlayer(video, videoUrl, initializeVideoEvents);
+      return;
+    }
+    
+    // Если это не HLS поток или HLS не поддерживается
+    if (!isHlsStreamResult || !Hls.isSupported()) {
+      console.log('Loading video file with native support');
+      loadVideoNatively(video, videoUrl);
       initializeVideoEvents();
+      return;
     }
     
     return () => {
@@ -262,7 +262,7 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
     const handleError = (e) => {
       const errorCode = video.error ? video.error.code : 'unknown';
       const errorMessage = video.error ? video.error.message : 'Unknown error';
-      console.error('Video error occurred:', errorCode, errorMessage);
+      console.error('Video error occurred:', errorCode, errorMessage, 'URL:', videoUrl);
       
       setIsBuffering(false);
       setIsPlaying(false);
@@ -294,10 +294,14 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
           if (hlsRef.current) {
             console.log('Attempting fallback to native video playback');
             fallbackToNativeSupport(video, videoUrl, initializeVideoEvents);
-          } else if (videoUrl && videoUrl.includes('.m3u8')) {
-            // Если это HLS поток, но HLS.js не kullanılıyordu, попробуем его использовать
+          } else if (videoUrl && isHlsStream(videoUrl)) {
+            // Если это HLS поток, но HLS.js не используется, попробуем его использовать
             console.log('Attempting to use HLS.js as fallback');
-            initializeHlsPlayer(video, videoUrl, initializeVideoEvents);
+            if (Hls.isSupported()) {
+              initializeHlsPlayer(video, videoUrl, initializeVideoEvents);
+            } else {
+              console.warn('HLS is not supported in this browser');
+            }
           }
           break;
         default:
@@ -347,7 +351,7 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
           .catch(error => {
             // Обработка ошибки воспроизведения
             setIsBuffering(false);
-            console.error('Error playing video:', error);
+            console.error('Error playing video:', error, 'URL:', videoUrl);
             
             // Если это ошибка NotSupportedError, пробуем альтернативные методы
             if (error.name === 'NotSupportedError' || error.message.includes('not supported')) {
@@ -361,11 +365,20 @@ const VideoPlayer = ({ videoUrl, poster, title, onPlay, onPause, onEnded }) => {
                 
                 // Небольшая задержка перед пересозданием
                 setTimeout(() => {
-                  initializeHlsPlayer(video, currentUrl, initializeVideoEvents);
+                  if (Hls.isSupported()) {
+                    initializeHlsPlayer(video, currentUrl, initializeVideoEvents);
+                  } else {
+                    loadVideoNatively(video, currentUrl);
+                    initializeVideoEvents();
+                  }
                 }, 100);
-              } else if (videoUrl && videoUrl.includes('.m3u8')) {
+              } else if (videoUrl && isHlsStream(videoUrl)) {
                 // Если это HLS поток без HLS.js, попробуем использовать HLS.js
-                initializeHlsPlayer(video, videoUrl, initializeVideoEvents);
+                if (Hls.isSupported()) {
+                  initializeHlsPlayer(video, videoUrl, initializeVideoEvents);
+                } else {
+                  console.warn('HLS is not supported in this browser');
+                }
               }
             }
           });

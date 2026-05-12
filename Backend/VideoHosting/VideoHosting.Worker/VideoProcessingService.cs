@@ -215,7 +215,7 @@ public class VideoProcessingService : IHostedService
                 
                 // Обновляем статус видео на Ready
                 video.Status = "Ready";
-                video.HlsUrl = $"/streaming/{videoId}/master.m3u8";
+                video.HlsUrl = $"http://localhost:9000/videos/streaming/{videoId}/master.m3u8";
                 video.UpdatedAt = DateTime.UtcNow;
                 await videoRepository.UpdateAsync(video);
                 
