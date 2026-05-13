@@ -10,9 +10,9 @@ public class RabbitMqService : IRabbitMqService, IDisposable
     private IModel? _channel;
     private readonly object _channelLock = new object();
 
-    public RabbitMqService(IConnection connection)
+    public RabbitMqService(IConnection connectionFactory)
     {
-        _connection = connection;
+        _connection = connectionFactory;
     }
     
     private IModel Channel

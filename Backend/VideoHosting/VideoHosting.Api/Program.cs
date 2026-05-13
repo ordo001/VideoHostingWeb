@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using VideoHosting.Infrastructure.Data;
 using VideoHosting.Domain.Interfaces;
@@ -8,10 +6,7 @@ using VideoHosting.Application.Interfaces;
 using VideoHosting.Application.Services;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using VideoHosting.Api.Middleware;
 using Minio;
@@ -64,6 +59,24 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.MinioService>();
 builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = 10_737_418_240; // 10 GB
+    serverOptions.Limits.MaxRequestBufferSize = 10_737_418_240;
+    serverOptions.Limits.MaxResponseBufferSize = 10_737_418_240;
+    serverOptions.Limits.MinRequestBodyDataRate = null; // Отключаем ограничение скорости
+    serverOptions.Limits.MinResponseDataRate = null;
+});
+
+// Настройка FormOptions для мультипарт запросов
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = 10_737_418_240; // 10 GB
+    options.MemoryBufferThreshold = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+});
 
 // Add JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -138,9 +151,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Apply migrations on startup if migrate argument is provided
-var commandLineArgs = Environment.GetCommandLineArgs();
-if (commandLineArgs.Contains("--migrate"))
+// Always apply migrations on startup
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<VideoHostingDbContext>();
@@ -159,6 +170,14 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Container"
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(x =>
+{
+    x.WithOrigins("http://localhost:3000")
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+});
 
 // Add error handling middleware
 app.UseMiddleware<ErrorHandlingMiddleware>();

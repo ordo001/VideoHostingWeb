@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VideoHosting.Application.DTOs;
 using VideoHosting.Application.Interfaces;
-using VideoHosting.Api.Middleware;
 
 namespace VideoHosting.Api.Controllers;
 
@@ -31,7 +30,7 @@ public class AdminController : ControllerBase
     /// <returns>Список пользователей</returns>
     [HttpGet("users")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<UserDto>>>> GetUsers([FromQuery] AdminUserListRequestDto request)
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers([FromQuery] AdminUserListRequestDto request)
     {
         try
         {
@@ -52,11 +51,11 @@ public class AdminController : ControllerBase
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize);
             
-            return Ok(ApiResponse<IEnumerable<UserDto>>.Ok(paginatedUsers, "Список пользователей получен"));
+            return Ok(paginatedUsers);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<IEnumerable<UserDto>>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -68,30 +67,30 @@ public class AdminController : ControllerBase
     /// <returns>Результат удаления</returns>
     [HttpDelete("videos/{videoId}")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<ApiResponse<bool>>> DeleteVideo(Guid videoId, [FromBody] AdminDeleteVideoRequestDto request)
+    public async Task<ActionResult<bool>> DeleteVideo(Guid videoId, [FromBody] AdminDeleteVideoRequestDto request)
     {
         try
         {
             var video = await _videoService.GetVideoByIdAsync(videoId);
             if (video == null)
             {
-                return NotFound(ApiResponse<bool>.Error("Видео не найдено"));
+                return NotFound(new { error = new { message = "Видео не найдено" } });
             }
 
             // Получение ID администратора из токена
             var adminUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(adminUserId) || !Guid.TryParse(adminUserId, out var adminGuid))
             {
-                return Unauthorized(ApiResponse<bool>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             await _videoService.DeleteVideoByAdminAsync(videoId, adminGuid, request.Reason);
             
-            return Ok(ApiResponse<bool>.Ok(true, $"Видео успешно удалено. Причина: {request.Reason}"));
+            return Ok(true);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<bool>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 }

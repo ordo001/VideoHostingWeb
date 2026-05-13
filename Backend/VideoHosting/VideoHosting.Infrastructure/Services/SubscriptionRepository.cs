@@ -57,4 +57,18 @@ public class SubscriptionRepository : ISubscriptionRepository
             await _context.SaveChangesAsync();
         }
     }
+    
+    public async Task<IEnumerable<Subscription>> GetBySubscriberAsync(Guid subscriberId)
+    {
+        return await _context.Subscriptions
+            .Where(s => s.SubscriberId == subscriberId)
+            .ToListAsync();
+    }
+    
+    public async Task<IEnumerable<Subscription>> GetByChannelAsync(Guid channelId)
+    {
+        return await _context.Subscriptions
+            .Where(s => s.ChannelId == channelId)
+            .ToListAsync();
+    }
 }

@@ -16,7 +16,4 @@ public class RegisterRequestDto
     [Required(ErrorMessage = "Пароль обязателен")]
     [StringLength(100, ErrorMessage = "Пароль должен быть длиной от 6 до 100 символов", MinimumLength = 6)]
     public string Password { get; set; } = string.Empty;
-
-    [Compare("Password", ErrorMessage = "Пароли не совпадают")]
-    public string ConfirmPassword { get; set; } = string.Empty;
 }

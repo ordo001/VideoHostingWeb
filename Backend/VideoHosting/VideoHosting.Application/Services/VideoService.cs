@@ -149,6 +149,7 @@ public class VideoService : IVideoService
             Title = video.Title,
             Description = video.Description,
             ThumbnailUrl = video.ThumbnailUrl,
+            OriginalVideoUrl = video.OriginalVideoUrl,
             HlsUrl = video.HlsUrl,
             Duration = video.Duration,
             Views = video.Views,
@@ -157,6 +158,9 @@ public class VideoService : IVideoService
             Status = video.Status,
             CreatedAt = video.CreatedAt,
             UpdatedAt = video.UpdatedAt,
+            IsLiked = false,  // По умолчанию, нужно будет заполнить в контроллере
+            IsDisliked = false,  // По умолчанию, нужно будет заполнить в контроллере
+            IsSubscribed = false,  // По умолчанию, нужно будет заполнить в контроллере
             User = user != null ? new UserDto
             {
                 Id = user.Id,
@@ -166,7 +170,8 @@ public class VideoService : IVideoService
                 Description = user.Description,
                 IsAdmin = user.IsAdmin,
                 CreatedAt = user.CreatedAt,
-                UpdatedAt = user.UpdatedAt
+                UpdatedAt = user.UpdatedAt,
+                SubscribersCount = 0  // По умолчанию, будет заполнено позже
             } : null!
         };
     }
@@ -179,6 +184,7 @@ public class VideoService : IVideoService
             Title = videoDto.Title,
             Description = videoDto.Description,
             ThumbnailUrl = videoDto.ThumbnailUrl,
+            OriginalVideoUrl = videoDto.OriginalVideoUrl,
             HlsUrl = videoDto.HlsUrl,
             Duration = videoDto.Duration,
             Views = videoDto.Views,

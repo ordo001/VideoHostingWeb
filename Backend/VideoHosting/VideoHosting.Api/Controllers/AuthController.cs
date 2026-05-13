@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using VideoHosting.Application.DTOs;
 using VideoHosting.Application.Interfaces;
-using VideoHosting.Api.Middleware;
 
 namespace VideoHosting.Api.Controllers;
 
@@ -25,20 +24,20 @@ public class AuthController : ControllerBase
         /// <param name="request">Данные для регистрации</param>
         /// <returns>Токен доступа и информация о пользователе</returns>
         [HttpPost("register")]
-    public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register([FromBody] RegisterRequestDto request)
+    public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterRequestDto request)
     {
         try
         {
             var result = await _authService.RegisterAsync(request);
-            return Ok(ApiResponse<AuthResponseDto>.Ok(result, "Пользователь успешно зарегистрирован"));
+            return Ok(result);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ApiResponse<AuthResponseDto>.Error(ex.Message));
+            return BadRequest(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<AuthResponseDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -48,20 +47,20 @@ public class AuthController : ControllerBase
     /// <param name="request">Данные для авторизации</param>
     /// <returns>Токен доступа и информация о пользователе</returns>
     [HttpPost("login")]
-    public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
+    public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
     {
         try
         {
             var result = await _authService.LoginAsync(request);
-            return Ok(ApiResponse<AuthResponseDto>.Ok(result, "Пользователь успешно авторизован"));
+            return Ok(result);
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Unauthorized(ApiResponse<AuthResponseDto>.Error(ex.Message));
+            return Unauthorized(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<AuthResponseDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 
@@ -70,7 +69,7 @@ public class AuthController : ControllerBase
     /// </summary>
     /// <returns>Информация о текущем пользователе</returns>
     [HttpGet("me")]
-    public async Task<ActionResult<ApiResponse<UserDto>>> GetCurrentUser()
+    public async Task<ActionResult<UserDto>> GetCurrentUser()
     {
         try
         {
@@ -78,19 +77,19 @@ public class AuthController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
-                return Unauthorized(ApiResponse<UserDto>.Error("Неверный токен доступа"));
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
             }
 
             var user = await _authService.GetCurrentUserAsync(userGuid);
-            return Ok(ApiResponse<UserDto>.Ok(user, "Информация о пользователе получена"));
+            return Ok(user);
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ApiResponse<UserDto>.Error(ex.Message));
+            return NotFound(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse<UserDto>.Error("Произошла внутренняя ошибка сервера", new List<string> { ex.Message }));
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
 }

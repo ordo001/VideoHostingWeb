@@ -5,6 +5,8 @@ namespace VideoHosting.Worker.Services;
 public class FFmpegVideoProcessor
 {
     private readonly string _tempDirectory;
+    private readonly string _ffmpegPath;
+    private readonly string _ffprobePath;
     
     public FFmpegVideoProcessor()
     {
@@ -12,6 +14,43 @@ public class FFmpegVideoProcessor
         if (!Directory.Exists(_tempDirectory))
         {
             Directory.CreateDirectory(_tempDirectory);
+        }
+        
+        // Определяем пути к исполняемым файлам в зависимости от операционной системы
+        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+        {
+            // Для Windows проверяем наличие ffmpeg.exe в текущей директории
+            _ffmpegPath = File.Exists("./ffmpeg.exe") ? "./ffmpeg.exe" : "ffmpeg";
+            _ffprobePath = File.Exists("./ffprobe.exe") ? "./ffprobe.exe" : "ffprobe";
+        }
+        else
+        {
+            // Для Linux/macOS используем системные команды
+            _ffmpegPath = "ffmpeg";
+            _ffprobePath = "ffprobe";
+        }
+        
+        // Проверяем доступность ffmpeg
+        try
+        {
+            var testProcess = new ProcessStartInfo
+            {
+                FileName = _ffmpegPath,
+                Arguments = "-version",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            
+            using var process = Process.Start(testProcess);
+            if (process != null)
+            {
+                process.WaitForExit(5000); // Ожидаем не более 5 секунд
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: FFmpeg may not be available. Error: {ex.Message}");
         }
     }
     
@@ -149,7 +188,7 @@ stream_1080p.m3u8";
     {
         var processStartInfo = new ProcessStartInfo
         {
-            FileName = "ffmpeg",
+            FileName = _ffmpegPath,
             Arguments = arguments,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -229,7 +268,7 @@ stream_1080p.m3u8";
             var arguments = $"-v quiet -show_streams -show_format -print_format json \"{filePath}\"";
             var processStartInfo = new ProcessStartInfo
             {
-                FileName = "ffprobe",
+                FileName = _ffprobePath,
                 Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
