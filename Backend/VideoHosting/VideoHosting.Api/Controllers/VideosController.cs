@@ -33,11 +33,11 @@ public class VideosController : ControllerBase
     /// <summary>
     /// Загрузка нового видео
     /// </summary>
-    /// <param name="uploadModel">Данные для загрузки видео</param>
+    /// <param name="uploadDto">Данные для загрузки видео</param>
     /// <returns>Информация о загруженном видео</returns>
     [HttpPost("upload")]
     [Authorize]
-    public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadModel uploadModel)
+    public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadModel uploadDto)
     {
         try
         {
@@ -49,29 +49,29 @@ public class VideosController : ControllerBase
             }
 
             // Загрузка видео файла в MinIO
-            var videoFileName = $"{Guid.NewGuid()}_{uploadModel.VideoFile.FileName}";
+            var videoFileName = $"{Guid.NewGuid()}_{uploadDto.VideoFile.FileName}";
             var videoUrl = await _minioService.UploadVideoAsync(
-                uploadModel.VideoFile.OpenReadStream(),
+                uploadDto.VideoFile.OpenReadStream(),
                 videoFileName,
-                uploadModel.VideoFile.ContentType);
+                uploadDto.VideoFile.ContentType);
 
             // Загрузка миниатюры (если предоставлена)
             string? thumbnailUrl = null;
-            if (uploadModel.ThumbnailFile != null)
+            if (uploadDto.ThumbnailFile != null)
             {
-                var thumbnailFileName = $"{Guid.NewGuid()}_{uploadModel.ThumbnailFile.FileName}";
+                var thumbnailFileName = $"{Guid.NewGuid()}_{uploadDto.ThumbnailFile.FileName}";
                 thumbnailUrl = await _minioService.UploadThumbnailAsync(
-                    uploadModel.ThumbnailFile.OpenReadStream(),
+                    uploadDto.ThumbnailFile.OpenReadStream(),
                     thumbnailFileName,
-                    uploadModel.ThumbnailFile.ContentType);
+                    uploadDto.ThumbnailFile.ContentType);
             }
 
             // Создание записи о видео в БД
             var videoDto = new VideoDto
             {
                 Id = Guid.NewGuid(),
-                Title = uploadModel.Title,
-                Description = uploadModel.Description,
+                Title = uploadDto.Title,
+                Description = uploadDto.Description,
                 OriginalVideoUrl = videoUrl,
                 ThumbnailUrl = thumbnailUrl,
                 Status = "Processing",
