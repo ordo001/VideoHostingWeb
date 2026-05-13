@@ -22,7 +22,7 @@ public class UserService : IUserService
         if (user == null)
             return null;
 
-        return MapToDto(user);
+        return await MapToDtoAsync(user);
     }
 
     public async Task<UserDto?> GetUserByEmailAsync(string email)
@@ -31,13 +31,20 @@ public class UserService : IUserService
         if (user == null)
             return null;
 
-        return MapToDto(user);
+        return await MapToDtoAsync(user);
     }
 
     public async Task<IEnumerable<UserDto>> GetAllUsersAsync()
     {
         var users = await _userRepository.GetAllAsync();
-        return users.Select(MapToDto);
+        var userDtos = new List<UserDto>();
+        
+        foreach (var user in users)
+        {
+            userDtos.Add(await MapToDtoAsync(user));
+        }
+        
+        return userDtos;
     }
     
     public async Task<IEnumerable<UserDto>> SearchUsersAsync(string searchTerm)
@@ -46,14 +53,22 @@ public class UserService : IUserService
         var filteredUsers = users.Where(u => 
             u.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
             u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
-        return filteredUsers.Select(MapToDto);
+            
+        var userDtos = new List<UserDto>();
+        
+        foreach (var user in filteredUsers)
+        {
+            userDtos.Add(await MapToDtoAsync(user));
+        }
+        
+        return userDtos;
     }
 
     public async Task<UserDto> CreateUserAsync(UserDto userDto)
     {
         var user = MapToEntity(userDto);
         var createdUser = await _userRepository.CreateAsync(user);
-        return MapToDto(createdUser);
+        return await MapToDtoAsync(createdUser);
     }
 
     public async Task UpdateUserAsync(UserDto userDto)
@@ -78,7 +93,7 @@ public class UserService : IUserService
         await _userRepository.DeleteAsync(id);
     }
 
-    private UserDto MapToDto(User user)
+    private UserDto MapToDto(User user, int subscribersCount = 0)
     {
         return new UserDto
         {
@@ -90,8 +105,14 @@ public class UserService : IUserService
             IsAdmin = user.IsAdmin,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt,
-            SubscribersCount = _subscriptionRepository.GetSubscriberCountAsync(user.Id).Result
+            SubscribersCount = subscribersCount
         };
+    }
+
+    private async Task<UserDto> MapToDtoAsync(User user)
+    {
+        var subscriberCount = await _subscriptionRepository.GetSubscriberCountAsync(user.Id);
+        return MapToDto(user, subscriberCount);
     }
 
 private User MapToEntity(UserDto userDto)
@@ -171,7 +192,11 @@ private User MapToEntity(UserDto userDto)
             var channel = await _userRepository.GetByIdAsync(subscription.ChannelId);
             if (channel != null)
             {
-                subscribedChannels.Add(MapToDto(channel));
+                // Получаем количество подписчиков для канала
+                var subscriberCount = await _subscriptionRepository.GetSubscriberCountAsync(channel.Id);
+                var channelDto = MapToDto(channel, subscriberCount);
+                
+                subscribedChannels.Add(channelDto);
             }
         }
         
@@ -188,7 +213,11 @@ private User MapToEntity(UserDto userDto)
             var subscriber = await _userRepository.GetByIdAsync(subscription.SubscriberId);
             if (subscriber != null)
             {
-                subscribers.Add(MapToDto(subscriber));
+                // Получаем количество подписчиков для пользователя
+                var subscriberCount = await _subscriptionRepository.GetSubscriberCountAsync(subscriber.Id);
+                var subscriberDto = MapToDto(subscriber, subscriberCount);
+                
+                subscribers.Add(subscriberDto);
             }
         }
         

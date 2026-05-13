@@ -10,15 +10,18 @@ public class CommentService : ICommentService
     private readonly ICommentRepository _commentRepository;
     private readonly IUserRepository _userRepository;
     private readonly IVideoRepository _videoRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
 
     public CommentService(
         ICommentRepository commentRepository,
         IUserRepository userRepository,
-        IVideoRepository videoRepository)
+        IVideoRepository videoRepository,
+        ISubscriptionRepository subscriptionRepository)
     {
         _commentRepository = commentRepository;
         _userRepository = userRepository;
         _videoRepository = videoRepository;
+        _subscriptionRepository = subscriptionRepository;
     }
 
     public async Task<CommentDto?> GetCommentByIdAsync(Guid id)
@@ -27,8 +30,9 @@ public class CommentService : ICommentService
         if (comment == null)
             return null;
 
-        var user = await _userRepository.GetByIdAsync(comment.UserId);
-        return MapToDto(comment, user);
+        // The repository already includes the User, so we don't need to fetch it again
+        var user = comment.User;
+        return await MapToDtoAsync(comment, user);
     }
 
     public async Task<IEnumerable<CommentDto>> GetCommentsByVideoIdAsync(Guid videoId, int limit = 20, int offset = 0)
@@ -38,12 +42,13 @@ public class CommentService : ICommentService
         
         foreach (var comment in comments)
         {
-            var user = await _userRepository.GetByIdAsync(comment.UserId);
-            commentDtos.Add(MapToDto(comment, user));
+            // The repository already includes the User, so we don't need to fetch it again
+            var user = comment.User;
+            commentDtos.Add(await MapToDtoAsync(comment, user));
         }
         
-        // Сортируем по дате создания (новые первые)
-        return commentDtos.OrderByDescending(c => c.CreatedAt);
+        // Comments are already sorted by CreatedAt in the repository
+        return commentDtos;
     }
 
     public async Task<CommentDto> CreateCommentAsync(Guid videoId, Guid userId, CreateCommentDto createDto)
@@ -69,10 +74,10 @@ public class CommentService : ICommentService
         };
 
         var createdComment = await _commentRepository.CreateAsync(comment);
-        return MapToDto(createdComment, user);
+        return await MapToDtoAsync(createdComment, user);
     }
 
-    public async Task<bool> UpdateCommentAsync(Guid commentId, Guid userId, CreateCommentDto updateDto)
+    public async Task<bool> UpdateCommentAsync(Guid commentId, Guid userId, UpdateCommentDto updateDto)
     {
         var comment = await _commentRepository.GetByIdAsync(commentId);
         if (comment == null)
@@ -108,8 +113,14 @@ public class CommentService : ICommentService
         return await _commentRepository.GetCountByVideoIdAsync(videoId);
     }
 
-    private CommentDto MapToDto(Comment comment, User? user)
+    private async Task<CommentDto> MapToDtoAsync(Comment comment, User? user)
     {
+        int subscribersCount = 0;
+        if (user != null)
+        {
+            subscribersCount = await _subscriptionRepository.GetSubscriberCountAsync(user.Id);
+        }
+        
         return new CommentDto
         {
             Id = comment.Id,
@@ -127,7 +138,7 @@ public class CommentService : ICommentService
                 IsAdmin = user.IsAdmin,
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt,
-                SubscribersCount = 0 // Зададим значение по умолчанию, можно доработать позже
+                SubscribersCount = subscribersCount
             } : null!
         };
     }

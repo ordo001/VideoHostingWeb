@@ -9,7 +9,6 @@ using VideoHosting.Application.Interfaces;
 namespace VideoHosting.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
 public class SubscriptionsController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -24,7 +23,7 @@ public class SubscriptionsController : ControllerBase
     /// </summary>
     /// <param name="channelId">ID канала</param>
     /// <returns>Информация о канале</returns>
-    [HttpGet("channels/{channelId}")]
+    [HttpGet("~/api/channels/{channelId}")]
     public async Task<ActionResult<UserDto>> GetChannelInfo(Guid channelId)
     {
         try
@@ -48,7 +47,7 @@ public class SubscriptionsController : ControllerBase
     /// </summary>
     /// <param name="channelId">ID канала</param>
     /// <returns>Результат подписки</returns>
-    [HttpPost("channels/{channelId}/subscribe")]
+    [HttpPost("~/api/channels/{channelId}/subscribe")]
     [Authorize]
     public async Task<ActionResult<bool>> SubscribeChannel(Guid channelId)
     {
@@ -87,7 +86,7 @@ public class SubscriptionsController : ControllerBase
     /// </summary>
     /// <param name="channelId">ID канала</param>
     /// <returns>Результат отписки</returns>
-    [HttpPost("channels/{channelId}/unsubscribe")]
+    [HttpPost("~/api/channels/{channelId}/unsubscribe")]
     [Authorize]
     public async Task<ActionResult<bool>> UnsubscribeChannel(Guid channelId)
     {
@@ -119,9 +118,9 @@ public class SubscriptionsController : ControllerBase
     /// Получение подписок текущего пользователя
     /// </summary>
     /// <returns>Список подписок пользователя</returns>
-    [HttpGet("my/subscriptions")]
+    [HttpGet("~/api/users/me/subscriptions")]
     [Authorize]
-    public async Task<ActionResult<IEnumerable<UserDto>>> GetMySubscriptions()
+    public async Task<ActionResult<object>> GetMySubscriptions()
     {
         try
         {
@@ -133,7 +132,7 @@ public class SubscriptionsController : ControllerBase
             }
 
             var subscriptions = await _userService.GetUserSubscriptionsAsync(userGuid);
-            return Ok(subscriptions);
+            return Ok(new { channels = subscriptions });
         }
         catch (Exception ex)
         {
@@ -146,7 +145,7 @@ public class SubscriptionsController : ControllerBase
     /// </summary>
     /// <param name="channelId">ID канала</param>
     /// <returns>Список подписчиков канала</returns>
-    [HttpGet("channels/{channelId}/subscribers")]
+    [HttpGet("~/api/channels/{channelId}/subscribers")]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetChannelSubscribers(Guid channelId)
     {
         try
@@ -165,7 +164,7 @@ public class SubscriptionsController : ControllerBase
     /// </summary>
     /// <param name="channelId">ID канала</param>
     /// <returns>Результат проверки подписки</returns>
-    [HttpGet("channels/{channelId}/is-subscribed")]
+    [HttpGet("~/api/channels/{channelId}/is-subscribed")]
     [Authorize]
     public async Task<ActionResult<bool>> IsSubscribedToChannel(Guid channelId)
     {
@@ -192,7 +191,7 @@ public class SubscriptionsController : ControllerBase
     /// </summary>
     /// <param name="channelId">ID канала</param>
     /// <returns>Количество подписчиков</returns>
-    [HttpGet("channels/{channelId}/subscriber-count")]
+    [HttpGet("~/api/channels/{channelId}/subscriber-count")]
     public async Task<ActionResult<int>> GetSubscriberCount(Guid channelId)
     {
         try

@@ -27,7 +27,7 @@ const SubscriptionsPage = () => {
       
       try {
         const data = await subscriptionService.getMySubscriptions();
-        setSubscriptions(data.channels || []);
+        setSubscriptions(data || []);
       } catch (err) {
         setError(err.message);
         showNotification({

@@ -16,5 +16,6 @@ public class User
     public ICollection<Video> Videos { get; set; } = new List<Video>();
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
     public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
+    public ICollection<Subscription> Subscribers { get; set; } = new List<Subscription>();
     public ICollection<VideoReaction> VideoReactions { get; set; } = new List<VideoReaction>();
 }

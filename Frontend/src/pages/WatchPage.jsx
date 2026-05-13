@@ -5,6 +5,7 @@ import { useUI } from '../hooks/useUI';
 import { useAuthModal } from '../hooks/useAuthModal';
 import videoService from '../services/videoService';
 import channelService from '../services/channelService';
+import subscriptionService from '../services/subscriptionService';
 import VideoPlayer from '../components/VideoPlayer';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
@@ -79,7 +80,6 @@ const WatchPage = () => {
         setLikes(data.likes || 0);
         setDislikes(data.dislikes || 0);
         setViews(data.views || 0);
-        setIsSubscribed(data.is_subscribed || false);
         
         // Проверяем, что видео обрабатывается или готово к просмотру
         if (data.processing_status === 'processing') {
@@ -122,6 +122,23 @@ const WatchPage = () => {
     fetchVideoData();
   }, [videoId, showNotification]);
   
+  // Проверяем статус подписки отдельно
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      if (!user || !videoData?.author?.id) return;
+      
+      try {
+        const isSubs = await subscriptionService.isSubscribedToChannel(videoData.author.id);
+        setIsSubscribed(isSubs);
+      } catch (err) {
+        console.error('Ошибка проверки статуса подписки:', err);
+        // В случае ошибки оставляем текущее состояние
+      }
+    };
+    
+    checkSubscriptionStatus();
+  }, [videoData?.author?.id, user]);
+  
   // Обработчик подписки на канал
   const handleSubscribe = async () => {
     if (!user) {
@@ -144,15 +161,26 @@ const WatchPage = () => {
     }
     
     try {
-      let response;
-      
+      // Используем subscriptionService вместо channelService
       if (isSubscribed) {
-        response = await channelService.unsubscribeChannel(videoData.author.id);
+        await subscriptionService.unsubscribeFromChannel(videoData.author.id);
       } else {
-        response = await channelService.subscribeChannel(videoData.author.id);
+        await subscriptionService.subscribeToChannel(videoData.author.id);
       }
       
       setIsSubscribed(!isSubscribed);
+      
+      // Обновляем счетчик подписчиков в данных видео
+      setVideoData(prevData => ({
+        ...prevData,
+        author: {
+          ...prevData.author,
+          subscribers_count: isSubscribed 
+            ? Math.max(0, (prevData.author.subscribers_count || 0) - 1)
+            : (prevData.author.subscribers_count || 0) + 1
+        }
+      }));
+      
       showNotification({
         type: 'success',
         title: !isSubscribed ? 'Подписка оформлена' : 'Подписка отменена',
@@ -210,37 +238,67 @@ const WatchPage = () => {
     }
     
     try {
-      const response = await videoService.likeVideo(videoId);
-      
-      // Адаптация к формату ответа бэкенда
-      // Если бэкенд возвращает просто true, обновляем счетчики вручную
-      if (response === true || response.success === true) {
-        const wasLiked = isLiked;
-        const wasDisliked = isDisliked;
+      // Если лайк уже стоит, убираем его
+      if (isLiked) {
+        const response = await videoService.removeReaction(videoId);
         
-        // Если лайк уже стоит, убираем его
-        if (wasLiked) {
+        // Обновляем состояние после удаления реакции
+        if (response === true || response.success === true) {
           setIsLiked(false);
           setLikes(prev => Math.max(0, prev - 1));
-        } 
-        // Если стоит дизлайк, заменяем его лайком
-        else if (wasDisliked) {
+        } else if (response?.likes !== undefined) {
+          // Если бэкенд возвращает обновленные счетчики
+          setLikes(response.likes || 0);
+          setDislikes(response.dislikes || 0);
+          setIsLiked(response.is_liked || false);
+          setIsDisliked(response.is_disliked || false);
+        } else {
+          // Резервный вариант: обновляем вручную
+          setIsLiked(false);
+          setLikes(prev => Math.max(0, prev - 1));
+        }
+      } 
+      // Если стоит дизлайк, заменяем его лайком
+      else if (isDisliked) {
+        const response = await videoService.likeVideo(videoId);
+        
+        if (response === true || response.success === true) {
           setIsDisliked(false);
           setIsLiked(true);
           setDislikes(prev => Math.max(0, prev - 1));
           setLikes(prev => prev + 1);
-        } 
-        // Если нет реакции, ставим лайк
-        else {
+        } else if (response?.likes !== undefined) {
+          // Если бэкенд возвращает обновленные счетчики
+          setLikes(response.likes || 0);
+          setDislikes(response.dislikes || 0);
+          setIsLiked(response.is_liked || false);
+          setIsDisliked(response.is_disliked || false);
+        } else {
+          // Резервный вариант: обновляем вручную
+          setIsDisliked(false);
+          setIsLiked(true);
+          setDislikes(prev => Math.max(0, prev - 1));
+          setLikes(prev => prev + 1);
+        }
+      } 
+      // Если нет реакции, ставим лайк
+      else {
+        const response = await videoService.likeVideo(videoId);
+        
+        if (response === true || response.success === true) {
+          setIsLiked(true);
+          setLikes(prev => prev + 1);
+        } else if (response?.likes !== undefined) {
+          // Если бэкенд возвращает обновленные счетчики
+          setLikes(response.likes || 0);
+          setDislikes(response.dislikes || 0);
+          setIsLiked(response.is_liked || false);
+          setIsDisliked(response.is_disliked || false);
+        } else {
+          // Резервный вариант: обновляем вручную
           setIsLiked(true);
           setLikes(prev => prev + 1);
         }
-      } else {
-        // Если бэкенд возвращает обновленные счетчики
-        setLikes(response.likes || 0);
-        setDislikes(response.dislikes || 0);
-        setIsLiked(response.is_liked || false);
-        setIsDisliked(response.is_disliked || false);
       }
     } catch (err) {
       showNotification({
@@ -263,37 +321,67 @@ const WatchPage = () => {
     }
     
     try {
-      const response = await videoService.dislikeVideo(videoId);
-      
-      // Адаптация к формату ответа бэкенда
-      // Если бэкенд возвращает просто true, обновляем счетчики вручную
-      if (response === true || response.success === true) {
-        const wasLiked = isLiked;
-        const wasDisliked = isDisliked;
+      // Если дизлайк уже стоит, убираем его
+      if (isDisliked) {
+        const response = await videoService.removeReaction(videoId);
         
-        // Если дизлайк уже стоит, убираем его
-        if (wasDisliked) {
+        // Обновляем состояние после удаления реакции
+        if (response === true || response.success === true) {
           setIsDisliked(false);
           setDislikes(prev => Math.max(0, prev - 1));
-        } 
-        // Если стоит лайк, заменяем его дизлайком
-        else if (wasLiked) {
+        } else if (response?.likes !== undefined) {
+          // Если бэкенд возвращает обновленные счетчики
+          setLikes(response.likes || 0);
+          setDislikes(response.dislikes || 0);
+          setIsLiked(response.is_liked || false);
+          setIsDisliked(response.is_disliked || false);
+        } else {
+          // Резервный вариант: обновляем вручную
+          setIsDisliked(false);
+          setDislikes(prev => Math.max(0, prev - 1));
+        }
+      } 
+      // Если стоит лайк, заменяем его дизлайком
+      else if (isLiked) {
+        const response = await videoService.dislikeVideo(videoId);
+        
+        if (response === true || response.success === true) {
           setIsLiked(false);
           setIsDisliked(true);
           setLikes(prev => Math.max(0, prev - 1));
           setDislikes(prev => prev + 1);
-        } 
-        // Если нет реакции, ставим дизлайк
-        else {
+        } else if (response?.likes !== undefined) {
+          // Если бэкенд возвращает обновленные счетчики
+          setLikes(response.likes || 0);
+          setDislikes(response.dislikes || 0);
+          setIsLiked(response.is_liked || false);
+          setIsDisliked(response.is_disliked || false);
+        } else {
+          // Резервный вариант: обновляем вручную
+          setIsLiked(false);
+          setIsDisliked(true);
+          setLikes(prev => Math.max(0, prev - 1));
+          setDislikes(prev => prev + 1);
+        }
+      } 
+      // Если нет реакции, ставим дизлайк
+      else {
+        const response = await videoService.dislikeVideo(videoId);
+        
+        if (response === true || response.success === true) {
+          setIsDisliked(true);
+          setDislikes(prev => prev + 1);
+        } else if (response?.likes !== undefined) {
+          // Если бэкенд возвращает обновленные счетчики
+          setLikes(response.likes || 0);
+          setDislikes(response.dislikes || 0);
+          setIsLiked(response.is_liked || false);
+          setIsDisliked(response.is_disliked || false);
+        } else {
+          // Резервный вариант: обновляем вручную
           setIsDisliked(true);
           setDislikes(prev => prev + 1);
         }
-      } else {
-        // Если бэкенд возвращает обновленные счетчики
-        setLikes(response.likes || 0);
-        setDislikes(response.dislikes || 0);
-        setIsLiked(response.is_liked || false);
-        setIsDisliked(response.is_disliked || false);
       }
     } catch (err) {
       showNotification({
@@ -319,23 +407,51 @@ const WatchPage = () => {
     if (!newComment.trim()) return;
     
     try {
-      // Временно комментарии не работают, т.к. эндпоинт не реализован в бэкенде
-      showNotification({
-        type: 'info',
-        title: 'Функция в разработке',
-        message: 'Комментарии будут доступны в ближайшее время'
-      });
-      
-      // Код для использования, когда эндпоинт будет реализован:
-      /*
       const comment = await videoService.addVideoComment(videoId, {
-        text: newComment
+        text: newComment.trim()
       });
       
       setComments(prev => [comment, ...prev]);
       setCommentsCount(prev => prev + 1);
       setNewComment('');
-      */
+      
+      showNotification({
+        type: 'success',
+        title: 'Комментарий добавлен',
+        message: 'Ваш комментарий успешно опубликован'
+      });
+    } catch (err) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка',
+        message: err.message
+      });
+    }
+  };
+
+  // Обработчик удаления комментария
+  const handleDeleteComment = async (commentId) => {
+    if (!user) {
+      showNotification({
+        type: 'warning',
+        title: 'Требуется авторизация',
+        message: 'Войдите в аккаунт, чтобы удалить комментарий'
+      });
+      openAuthModal();
+      return;
+    }
+    
+    try {
+      await videoService.deleteComment(commentId);
+      
+      setComments(prev => prev.filter(comment => comment.id !== commentId));
+      setCommentsCount(prev => Math.max(0, prev - 1));
+      
+      showNotification({
+        type: 'success',
+        title: 'Комментарий удален',
+        message: 'Комментарий успешно удален'
+      });
     } catch (err) {
       showNotification({
         type: 'error',
@@ -549,38 +665,58 @@ const WatchPage = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {comments.map(comment => (
-                    <div key={comment.id} className="flex">
-                      <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
-                        {comment.author.avatar ? (
-                          <img 
-                            src={comment.author.avatar} 
-                            alt={comment.author.name} 
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="font-medium text-gray-300">
-                            {comment.author.name.charAt(0)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="bg-gray-900 rounded-2xl p-4">
-                          <div className="font-medium">{comment.author.name}</div>
-                          <p className="text-gray-300 mt-2">{comment.text}</p>
-                          <div className="flex items-center mt-3 text-sm text-gray-500">
-                            <span>{new Date(comment.created_at).toLocaleDateString()}</span>
-                            <Button variant="ghost" size="sm" className="ml-4 text-gray-500 hover:text-white">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                              </svg>
-                              {comment.likes || 0}
-                            </Button>
+                  {comments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>Пока нет комментариев. Будьте первым!</p>
+                    </div>
+                  ) : (
+                    comments.map(comment => (
+                      <div key={comment.id} className="flex">
+                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
+                          {comment.author?.avatar ? (
+                            <img 
+                              src={comment.author.avatar} 
+                              alt={comment.author.name} 
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="font-medium text-gray-300">
+                              {comment.author?.name?.charAt(0) || '?'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="bg-gray-900 rounded-2xl p-4">
+                            <div className="font-medium">{comment.author?.name || 'Аноним'}</div>
+                            <p className="text-gray-300 mt-2">{comment.text || comment.content}</p>
+                            <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
+                              <div className="flex items-center">
+                                <span>{new Date(comment.created_at).toLocaleDateString()}</span>
+                                <Button variant="ghost" size="sm" className="ml-4 text-gray-500 hover:text-white">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                                  </svg>
+                                  {comment.likes || 0}
+                                </Button>
+                              </div>
+                              {user && comment.author?.id === user.id && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-gray-500 hover:text-red-500"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               )}
             </div>

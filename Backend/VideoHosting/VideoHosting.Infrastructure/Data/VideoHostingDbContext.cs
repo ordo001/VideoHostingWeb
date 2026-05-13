@@ -78,7 +78,7 @@ public class VideoHostingDbContext : DbContext
                 .HasPrincipalKey(u => u.Id);
                 
             entity.HasOne(s => s.Channel)
-                .WithMany()
+                .WithMany(u => u.Subscribers)
                 .HasForeignKey(s => s.ChannelId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasPrincipalKey(u => u.Id);
