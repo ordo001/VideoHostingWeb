@@ -342,12 +342,12 @@ public class VideoService : IVideoService
         return videoDtos;
     }
 
-    public async Task<IEnumerable<VideoDto>> GetPopularVideosAsync(int daysAgo = 7)
+    public async Task<IEnumerable<VideoDto>> GetPopularVideosAsync(int days = 7)
     {
         var allVideos = await _videoRepository.GetAllAsync();
-        var cutoffDate = DateTime.UtcNow.AddDays(-daysAgo);
+        var cutoffDate = DateTime.UtcNow.AddDays(-days);
         
-        // Фильтруем видео, загруженные не позднее чем daysAgo дней назад
+        // Фильтруем видео, загруженные не позднее чем days дней назад
         var filteredVideos = allVideos.Where(v => v.CreatedAt >= cutoffDate);
         
         // Сортируем по количеству просмотров (по убыванию)

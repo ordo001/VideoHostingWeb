@@ -512,4 +512,43 @@ public class VideosController : ControllerBase
             return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
+
+    /// <summary>
+    /// Получение видео по идентификатору канала (пользователя)
+    /// </summary>
+    /// <param name="channelId">ID канала (пользователя)</param>
+    /// <returns>Список видео с канала</returns>
+    [HttpGet("channel/{channelId}")]
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideosByChannelId(Guid channelId)
+    {
+        try
+        {
+            var videos = await _videoService.GetVideosByChannelIdAsync(channelId);
+            return Ok(videos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
+
+    /// <summary>
+    /// Получение популярных видео за последние 7 дней
+    /// </summary>
+    /// <param name="days">Количество дней для фильтрации (по умолчанию 7)</param>
+    /// <param name="sortBy">Параметр сортировки (по умолчанию views)</param>
+    /// <returns>Список популярных видео</returns>
+    [HttpGet("popular")]
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetPopularVideos([FromQuery] int days = 7, [FromQuery] string sortBy = "views")
+    {
+        try
+        {
+            var videos = await _videoService.GetPopularVideosAsync(days);
+            return Ok(videos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
 }
