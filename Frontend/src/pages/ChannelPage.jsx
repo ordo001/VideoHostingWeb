@@ -5,8 +5,10 @@ import { useUI } from '../hooks/useUI';
 import channelService from '../services/channelService';
 import subscriptionService from '../services/subscriptionService';
 import videoService from '../services/videoService';
+import authService from '../services/authService';
 import VideoCard from '../components/VideoCard';
 import Button from '../components/Button';
+import Input from '../components/Input';
 import Loader from '../components/Loader';
 
 const ChannelPage = () => {
@@ -21,6 +23,8 @@ const ChannelPage = () => {
   const [error, setError] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribersCount, setSubscribersCount] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedData, setEditedData] = useState({ name: '', description: '' });
   
   const isOwnChannel = user && channelId === user.id;
   
@@ -131,6 +135,64 @@ const ChannelPage = () => {
     }
   };
   
+  // Обработчики редактирования профиля (только для своего канала)
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditedData({
+      name: channelData?.name || '',
+      description: channelData?.description || ''
+    });
+  };
+  
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditedData({
+      name: channelData?.name || '',
+      description: channelData?.description || ''
+    });
+  };
+  
+  const handleSave = async () => {
+    if (!isOwnChannel) return;
+    
+    try {
+      const updatedUser = await authService.updateProfile(editedData);
+      
+      // Обновляем данные канала после успешного сохранения
+      setChannelData(prevData => ({
+        ...prevData,
+        name: updatedUser.name,
+        description: updatedUser.description
+      }));
+      
+      // Обновляем данные пользователя в authStore
+      // Это предполагает, что в контексте auth есть функция для обновления данных
+      // Может понадобиться обновить через getCurrentUser()
+      
+      setIsEditing(false);
+      
+      showNotification({
+        type: 'success',
+        title: 'Профиль обновлен',
+        message: 'Ваши данные успешно сохранены'
+      });
+    } catch (err) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка обновления',
+        message: err.message
+      });
+    }
+  };
+  
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditedData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -205,26 +267,54 @@ const ChannelPage = () => {
           </div>
           
           {/* Детали канала */}
-          <div className="flex-1 md:ml-6 mb-4 md:mb-0">
-            <h1 className="text-2xl md:text-3xl font-bold">{channelData.name}</h1>
-            <p className="text-gray-400 mt-1">@{channelData.id}</p>
-            
-            <div className="flex text-gray-400 text-sm mt-2">
-              <span>{subscribersCount.toLocaleString()} подписчиков</span>
-              <span className="mx-2">•</span>
-              <span>{channelData.videos_count || 0} видео</span>
-            </div>
-            
-            {channelData.description && (
-              <p className="mt-3 text-gray-300 max-w-2xl">
-                {channelData.description}
-              </p>
+          <div className="flex-1 md:ml-6 mb-4 md:mb-0 text-left">
+            {isEditing && isOwnChannel ? (
+              <div className="space-y-4">
+                <Input
+                  label="Название канала"
+                  name="name"
+                  value={editedData.name}
+                  onChange={handleInputChange}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Описание канала
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
+                    value={editedData.description}
+                    onChange={(e) => setEditedData(prev => ({
+                      ...prev,
+                      description: e.target.value
+                    }))}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-2xl md:text-3xl font-bold text-left">{channelData.name}</h1>
+                <p className="text-gray-400 mt-1 text-left">@{channelData.id}</p>
+                
+                <div className="flex text-gray-400 text-sm mt-2 text-left">
+                  <span>{subscribersCount.toLocaleString()} подписчиков</span>
+                  <span className="mx-2">•</span>
+                  <span>{channelData.videos_count || 0} видео</span>
+                </div>
+                
+                {channelData.description && (
+                  <p className="mt-3 text-gray-300 max-w-2xl text-left">
+                    {channelData.description}
+                  </p>
+                )}
+              </>
             )}
           </div>
           
           {/* Кнопки действий */}
           <div className="md:mr-8">
-            {!isOwnChannel && (
+            {!isOwnChannel ? (
               <Button 
                 variant={isSubscribed ? "secondary" : "primary"}
                 onClick={handleSubscriptionToggle}
@@ -232,23 +322,23 @@ const ChannelPage = () => {
               >
                 {isSubscribed ? 'Подписаны' : 'Подписаться'}
               </Button>
+            ) : (
+              isEditing ? (
+                <div className="flex space-x-2">
+                  <Button variant="secondary" onClick={handleCancel}>
+                    Отмена
+                  </Button>
+                  <Button variant="primary" onClick={handleSave}>
+                    Сохранить
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="primary" onClick={handleEdit}>
+                  Редактировать канал
+                </Button>
+              )
             )}
           </div>
-        </div>
-        
-        {/* Вкладки */}
-        <div className="mt-8 border-b border-gray-800">
-          <nav className="flex space-x-8">
-            <button className="pb-3 border-b-2 border-primary text-white">
-              Видео
-            </button>
-            <button className="pb-3 text-gray-400 hover:text-white">
-              Плейлисты
-            </button>
-            <button className="pb-3 text-gray-400 hover:text-white">
-              Канал
-            </button>
-          </nav>
         </div>
         
         {/* Содержимое вкладки видео */}

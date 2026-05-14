@@ -221,6 +221,29 @@ export const videoService = {
       throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка удаления комментария');
     }
   },
+  
+  // Получение популярных видео за последние 7 дней
+  getPopularVideos: async (params = {}) => {
+    try {
+      const response = await videoApiClient.get('/videos/popular', { 
+        params: {
+          days: 7, // Видео за последние 7 дней
+          sortBy: 'views', // Сортировка по просмотрам
+          ...params
+        }
+      });
+      
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      
+      // Возвращаем адаптированные данные
+      return Array.isArray(data) ? { videos: adaptVideosList(data) } : 
+             Array.isArray(data?.data) ? { videos: adaptVideosList(data.data) } :
+             { videos: adaptVideosList(data?.videos || data || []) };
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения популярных видео');
+    }
+  },
 };
 
 export default videoService;

@@ -32,9 +32,12 @@ function App() {
   const { isModalOpen, redirectPath, openAuthModal, closeAuthModal } = useAuthModal();
   
   // Состояния для видео
-  const [videos, setVideos] = useState([]);
+  const [recommendedVideos, setRecommendedVideos] = useState([]);
+  const [popularVideos, setPopularVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAllRecommended, setShowAllRecommended] = useState(false);
+  const [showAllPopular, setShowAllPopular] = useState(false);
   
   // При монтировании приложения проверяем, есть ли токен и получаем данные пользователя
   useEffect(() => {
@@ -48,16 +51,22 @@ function App() {
     const fetchVideos = async () => {
       try {
         setLoading(true);
-        // Загружаем популярные видео с бэкенда, адаптируемся к параметрам бэкенда
-        const response = await videoService.getVideos({ 
-          SortBy: 'Views', 
-          SortDescending: true, 
-          PageSize: 6,
+        
+        // Загружаем рекомендуемые видео
+        const recommendedResponse = await videoService.getVideos({ 
+          PageSize: 20,
+          Page: 1
+        });
+        
+        // Загружаем популярные видео за последние 7 дней
+        const popularResponse = await videoService.getPopularVideos({ 
+          PageSize: 20,
           Page: 1
         });
         
         // Используем адаптированные видео
-        setVideos(response.videos || []);
+        setRecommendedVideos(recommendedResponse.videos || []);
+        setPopularVideos(popularResponse.videos || []);
         setError(null);
       } catch (err) {
         console.error('Ошибка при загрузке видео:', err);
@@ -103,14 +112,18 @@ function App() {
                 <section className="mb-12">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold">Рекомендуемое</h2>
-                    <Button variant="ghost" size="sm">
-                      Смотреть все
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowAllRecommended(!showAllRecommended)}
+                    >
+                      {showAllRecommended ? "Скрыть" : "Смотреть все"}
                     </Button>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {videos && videos.length > 0 ? (
-                      videos.slice(0, 3).map(video => (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {recommendedVideos && recommendedVideos.length > 0 ? (
+                      (showAllRecommended ? recommendedVideos : recommendedVideos.slice(0, 10)).map(video => (
                         <VideoCard
                           thumbnail={video.thumbnail_url}
                           key={video.id} 
@@ -119,11 +132,11 @@ function App() {
                         />
                       ))
                     ) : loading ? (
-                      <div className="col-span-3 flex justify-center py-12">
+                      <div className="col-span-5 flex justify-center py-12">
                         <Loader size="lg" />
                       </div>
                     ) : (
-                      <div className="col-span-3 text-center py-12 text-gray-400">
+                      <div className="col-span-5 text-center py-12 text-gray-400">
                         Не удалось загрузить видео
                       </div>
                     )}
@@ -133,14 +146,18 @@ function App() {
                 <section className="mb-12">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold">Популярные видео</h2>
-                    <Button variant="ghost" size="sm">
-                      Смотреть все
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowAllPopular(!showAllPopular)}
+                    >
+                      {showAllPopular ? "Скрыть" : "Смотреть все"}
                     </Button>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {videos && videos.length > 0 ? (
-                      videos.slice(3, 6).map(video => (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {popularVideos && popularVideos.length > 0 ? (
+                      (showAllPopular ? popularVideos : popularVideos.slice(0, 10)).map(video => (
                         <VideoCard
                           thumbnail={video.thumbnail_url}
                           key={video.id} 
@@ -149,11 +166,11 @@ function App() {
                         />
                       ))
                     ) : loading ? (
-                      <div className="col-span-3 flex justify-center py-12">
+                      <div className="col-span-5 flex justify-center py-12">
                         <Loader size="lg" />
                       </div>
                     ) : (
-                      <div className="col-span-3 text-center py-12 text-gray-400">
+                      <div className="col-span-5 text-center py-12 text-gray-400">
                         Не удалось загрузить видео
                       </div>
                     )}

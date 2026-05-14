@@ -67,6 +67,36 @@ export const channelService = {
     } catch (error) {
       throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения информации о канале');
     }
+  },
+  
+  // Получение видео канала по ID
+  getChannelVideos: async (channelId, params = {}) => {
+    try {
+      const response = await channelApiClient.get(`/videos/channel/${channelId}`, { params });
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      
+      // Возвращаем отформатированные данные
+      return {
+        videos: Array.isArray(data) ? data : Array.isArray(data?.videos) ? data.videos : [],
+        count: data?.count || data?.total || 0,
+        hasMore: data?.hasMore || data?.has_more || false
+      };
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения видео канала');
+    }
+  },
+  
+  // Получение своего канала
+  getMyChannel: async () => {
+    try {
+      const response = await channelApiClient.get('/channels/my');
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      return data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения данных своего канала');
+    }
   }
 };
 

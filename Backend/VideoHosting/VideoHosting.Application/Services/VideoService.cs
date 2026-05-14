@@ -327,4 +327,39 @@ public class VideoService : IVideoService
 
         return statusDto;
     }
+
+    public async Task<IEnumerable<VideoDto>> GetVideosByChannelIdAsync(Guid channelId)
+    {
+        var videos = await _videoRepository.GetByUserIdAsync(channelId);
+        var videoDtos = new List<VideoDto>();
+
+        foreach (var video in videos)
+        {
+            var user = await _userRepository.GetByIdAsync(video.UserId);
+            videoDtos.Add(MapToDto(video, user));
+        }
+
+        return videoDtos;
+    }
+
+    public async Task<IEnumerable<VideoDto>> GetPopularVideosAsync(int daysAgo = 7)
+    {
+        var allVideos = await _videoRepository.GetAllAsync();
+        var cutoffDate = DateTime.UtcNow.AddDays(-daysAgo);
+        
+        // Фильтруем видео, загруженные не позднее чем daysAgo дней назад
+        var filteredVideos = allVideos.Where(v => v.CreatedAt >= cutoffDate);
+        
+        // Сортируем по количеству просмотров (по убыванию)
+        var sortedVideos = filteredVideos.OrderByDescending(v => v.Views);
+        
+        var videoDtos = new List<VideoDto>();
+        foreach (var video in sortedVideos)
+        {
+            var user = await _userRepository.GetByIdAsync(video.UserId);
+            videoDtos.Add(MapToDto(video, user));
+        }
+
+        return videoDtos;
+    }
 }

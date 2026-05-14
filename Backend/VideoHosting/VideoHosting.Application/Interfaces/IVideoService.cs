@@ -7,6 +7,8 @@ public interface IVideoService
     Task<VideoDto?> GetVideoByIdAsync(Guid id);
     Task<IEnumerable<VideoDto>> GetAllVideosAsync();
     Task<IEnumerable<VideoDto>> GetVideosByUserIdAsync(Guid userId);
+    Task<IEnumerable<VideoDto>> GetVideosByChannelIdAsync(Guid channelId);
+    Task<IEnumerable<VideoDto>> GetPopularVideosAsync(int daysAgo = 7);
     Task<VideoDto> CreateVideoAsync(VideoDto video);
     Task UpdateVideoAsync(VideoDto video);
     Task DeleteVideoAsync(Guid id);

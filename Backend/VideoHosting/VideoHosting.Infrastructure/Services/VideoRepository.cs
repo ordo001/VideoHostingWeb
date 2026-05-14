@@ -29,6 +29,23 @@ public class VideoRepository : IVideoRepository
         return await _context.Videos.Where(v => v.UserId == userId).ToListAsync();
     }
 
+    public async Task<IEnumerable<Video>> GetVideosByChannelIdAsync(Guid channelId)
+    {
+        return await _context.Videos
+            .Where(v => v.UserId == channelId)
+            .OrderByDescending(v => v.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Video>> GetPopularVideosAsync(DateTime fromDateTime)
+    {
+        return await _context.Videos
+            .Where(v => v.CreatedAt >= fromDateTime)
+            .OrderByDescending(v => v.Views)
+            .ThenByDescending(v => v.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<Video> CreateAsync(Video video)
     {
         _context.Videos.Add(video);
