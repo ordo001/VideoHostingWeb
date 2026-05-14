@@ -150,6 +150,70 @@ public class ChannelsController : ControllerBase
             return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
+    
+    /// <summary>
+    /// Получение количества подписчиков канала
+    /// </summary>
+    /// <param name="channelId">ID канала</param>
+    /// <returns>Количество подписчиков</returns>
+    [HttpGet("~/api/channels/{channelId}/subscriber-count")]
+    public async Task<ActionResult<int>> GetSubscriberCount(Guid channelId)
+    {
+        try
+        {
+            var count = await _userService.GetSubscriberCountAsync(channelId);
+            return Ok(count);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
+    
+    /// <summary>
+    /// Получение подписчиков канала
+    /// </summary>
+    /// <param name="channelId">ID канала</param>
+    /// <returns>Список подписчиков канала</returns>
+    [HttpGet("~/api/channels/{channelId}/subscribers")]
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetChannelSubscribers(Guid channelId)
+    {
+        try
+        {
+            var subscribers = await _userService.GetChannelSubscribersAsync(channelId);
+            return Ok(subscribers);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
+    
+    /// <summary>
+    /// Получение подписок текущего пользователя
+    /// </summary>
+    /// <returns>Список подписок пользователя</returns>
+    [HttpGet("~/api/users/me/subscriptions")]
+    [Authorize]
+    public async Task<ActionResult<object>> GetMySubscriptions()
+    {
+        try
+        {
+            // Получение ID пользователя из токена
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+            {
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
+            }
+
+            var subscriptions = await _userService.GetUserSubscriptionsAsync(userGuid);
+            return Ok(new { channels = subscriptions });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
 
     /// <summary>
     /// Проверка, подписан ли текущий пользователь на канал
