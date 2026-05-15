@@ -51,21 +51,32 @@ const VideoCard = ({
   
   // Форматирование даты
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    if (!dateString) return 'Неизвестная дата';
     
-    if (diffInDays === 0) return 'Сегодня';
-    if (diffInDays === 1) return 'Вчера';
-    if (diffInDays < 7) return `${diffInDays} дней назад`;
-    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} недель назад`;
-    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} месяцев назад`;
-    return `${Math.floor(diffInDays / 365)} лет назад`;
+    try {
+      const date = new Date(dateString);
+      // Проверяем, является ли дата валидной
+      if (isNaN(date.getTime())) {
+        return 'Неизвестная дата';
+      }
+      
+      const now = new Date();
+      const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      
+      if (diffInDays === 0) return 'Сегодня';
+      if (diffInDays === 1) return 'Вчера';
+      if (diffInDays < 7) return `${diffInDays} дней назад`;
+      if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} недель назад`;
+      if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} месяцев назад`;
+      return `${Math.floor(diffInDays / 365)} лет назад`;
+    } catch (error) {
+      return 'Неизвестная дата';
+    }
   };
   
   return (
     <motion.div
-      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group ${className}`}
+      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group w-[calc(100%+6px)] ${className}`}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.2 }}
       onClick={handleCardClick}
@@ -97,7 +108,7 @@ const VideoCard = ({
       </div>
       
       {/* Video info */}
-      <div className="p-4">
+      <div className="p-3">
         <div className="flex">
           {/* Author avatar */}
           <div className="flex-shrink-0 mr-3">
@@ -117,16 +128,16 @@ const VideoCard = ({
           </div>
           
           {/* Video details */}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white font-medium line-clamp-2 mb-1">
+          <div className="flex-1 min-w-0 text-left">
+            <h3 className="text-white font-medium line-clamp-2 mb-1 text-left">
               {title || 'Без названия'}
             </h3>
             
-            <p className="text-gray-400 text-sm mb-1">
+            <p className="text-gray-400 text-sm mb-1 text-left">
               {author?.name || author?.Name || 'Неизвестный автор'}
             </p>
             
-            <div className="flex text-gray-500 text-xs">
+            <div className="flex text-gray-500 text-xs text-left">
               <span>{formatViews(views || 0)} просмотров</span>
               <span className="mx-1">•</span>
               <span>{formatDate(createdAt)}</span>

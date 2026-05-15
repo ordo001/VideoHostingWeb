@@ -246,9 +246,9 @@ const ChannelPage = () => {
       
       {/* Информация о канале */}
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row md:items-end md:-mt-16">
+        <div className="flex flex-col md:flex-row md:items-end mt-0">
           {/* Аватар канала */}
-          <div className="md:ml-8 mb-4 md:mb-0">
+          <div className="md:ml-8 mb-4 md:mb-0 md:-mt-16">
             <div className="w-32 h-32 rounded-full border-4 border-black overflow-hidden">
               {channelData.avatar_url ? (
                 <img 
@@ -295,12 +295,11 @@ const ChannelPage = () => {
             ) : (
               <>
                 <h1 className="text-2xl md:text-3xl font-bold text-left">{channelData.name}</h1>
-                <p className="text-gray-400 mt-1 text-left">@{channelData.id}</p>
                 
-                <div className="flex text-gray-400 text-sm mt-2 text-left">
+                <div className="flex text-gray-400 text-sm mt-1 text-left">
                   <span>{subscribersCount.toLocaleString()} подписчиков</span>
                   <span className="mx-2">•</span>
-                  <span>{channelData.videos_count || 0} видео</span>
+                  <span>{channelVideos.length || channelData.videos_count || 0} видео</span>
                 </div>
                 
                 {channelData.description && (

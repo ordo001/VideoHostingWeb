@@ -89,25 +89,6 @@ function App() {
           <Routes>
             <Route path="/" element={
               <div>
-                <section className="mb-12">
-                  <div className="text-center py-12">
-                    <h1 className="text-4xl md:text-6xl font-bold mb-4">
-                      Премиальная платформа для <span className="text-primary">профессионалов</span>
-                    </h1>
-                    <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-                      ZTube - это цифровой архив кино, место для кураторского контента и профессиональных видеопроектов
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <Button variant="primary" size="lg">
-                        Начать просмотр
-                      </Button>
-                      <Button variant="outline" size="lg">
-                        Узнать больше
-                      </Button>
-                    </div>
-                  </div>
-                </section>
                 
                 <section className="mb-12">
                   <div className="flex items-center justify-between mb-6">
