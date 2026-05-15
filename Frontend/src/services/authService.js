@@ -78,6 +78,32 @@ export const authService = {
     }
   },
 
+  // Обновление профиля пользователя
+  updateProfile: async (profileData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await authApiClient.put('/auth/profile', profileData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data) {
+        // Если ответ содержит success поле, используем его
+        if (response.data.success) {
+          return response.data.data || response.data;
+        }
+        // В противном случае возвращаем как есть
+        return response.data;
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Update profile error:', error.response?.data);
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка обновления профиля');
+    }
+  },
+  
   // Выход пользователя (клиентская операция)
   logout: () => {
     // Просто удаляем токен из localStorage

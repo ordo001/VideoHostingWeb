@@ -24,9 +24,6 @@ const Header = () => {
             <Link to="/" className="text-gray-300 hover:text-white transition-colors duration-200">
               Главная
             </Link>
-            <Link to="/trending" className="text-gray-300 hover:text-white transition-colors duration-200">
-              В тренде
-            </Link>
             {isAuthenticated && (
               <Link to="/subscriptions" className="text-gray-300 hover:text-white transition-colors duration-200">
                 Подписки
@@ -68,11 +65,11 @@ const Header = () => {
                       Загрузить
                     </Button>
                   </Link>
-                  <Link to="/profile" className="flex items-center">
+                  <Link to={`/channel/${user?.id || 'me'}`} className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center">
-                      {user?.avatar ? (
+                      {user?.avatar || user?.avatar_url ? (
                         <img 
-                          src={user.avatar} 
+                          src={user?.avatar || user?.avatar_url} 
                           alt={user.name} 
                           className="w-full h-full rounded-full object-cover"
                         />

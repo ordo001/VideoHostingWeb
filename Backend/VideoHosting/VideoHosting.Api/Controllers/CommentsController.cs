@@ -9,7 +9,7 @@ using VideoHosting.Application.Interfaces;
 namespace VideoHosting.Api.Controllers;
 
 [ApiController]
-[Route("api/videos/{videoId}/comments")]
+[Route("api")]
 public class CommentsController : ControllerBase
 {
     private readonly ICommentService _commentService;
@@ -28,7 +28,7 @@ public class CommentsController : ControllerBase
     /// <param name="limit">Лимит комментариев</param>
     /// <param name="offset">Смещение</param>
     /// <returns>Список комментариев</returns>
-    [HttpGet]
+    [HttpGet("videos/{videoId}/comments")]
     public async Task<ActionResult<IEnumerable<CommentDto>>> GetComments(Guid videoId, [FromQuery] int limit = 20, [FromQuery] int offset = 0)
     {
         try
@@ -48,7 +48,7 @@ public class CommentsController : ControllerBase
     /// <param name="videoId">ID видео</param>
     /// <param name="createDto">Данные для создания комментария</param>
     /// <returns>Созданный комментарий</returns>
-    [HttpPost]
+    [HttpPost("videos/{videoId}/comments")]
     [Authorize]
     public async Task<ActionResult<CommentDto>> AddComment(Guid videoId, [FromBody] CreateCommentDto createDto)
     {
@@ -77,13 +77,12 @@ public class CommentsController : ControllerBase
     /// <summary>
     /// Обновление комментария
     /// </summary>
-    /// <param name="videoId">ID видео</param>
     /// <param name="commentId">ID комментария</param>
     /// <param name="updateDto">Обновленные данные комментария</param>
     /// <returns>Результат обновления</returns>
-    [HttpPut("{commentId}")]
+    [HttpPut("comments/{commentId}")]
     [Authorize]
-    public async Task<ActionResult<bool>> UpdateComment(Guid videoId, Guid commentId, [FromBody] CreateCommentDto updateDto)
+    public async Task<ActionResult<bool>> UpdateComment(Guid commentId, [FromBody] UpdateCommentDto updateDto)
     {
         try
         {
@@ -115,12 +114,11 @@ public class CommentsController : ControllerBase
     /// <summary>
     /// Удаление комментария
     /// </summary>
-    /// <param name="videoId">ID видео</param>
     /// <param name="commentId">ID комментария</param>
     /// <returns>Результат удаления</returns>
-    [HttpDelete("{commentId}")]
+    [HttpDelete("comments/{commentId}")]
     [Authorize]
-    public async Task<ActionResult<bool>> DeleteComment(Guid videoId, Guid commentId)
+    public async Task<ActionResult<bool>> DeleteComment(Guid commentId)
     {
         try
         {
@@ -154,7 +152,7 @@ public class CommentsController : ControllerBase
     /// </summary>
     /// <param name="videoId">ID видео</param>
     /// <returns>Количество комментариев</returns>
-    [HttpGet("count")]
+    [HttpGet("videos/{videoId}/comments/count")]
     public async Task<ActionResult<int>> GetCommentCount(Guid videoId)
     {
         try

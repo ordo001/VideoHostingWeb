@@ -11,7 +11,7 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
   const { showNotification } = useUI();
   const fileInputRef = useRef(null);
   
-  const [currentStep, setCurrentStep] = useState(1); // 1: файл, 2: миниатюра, 3: метаданные, 4: приватность
+  const [currentStep, setCurrentStep] = useState(1); // 1: файл, 2: миниатюра, 3: метаданные
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -21,7 +21,6 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
     thumbnailFile: null,
     title: '',
     description: '',
-    privacy: 'public', // 'public', 'unlisted', 'private'
   });
   
   // Ошибки валидации
@@ -148,6 +147,7 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
       
       formData.append('title', videoData.title);
       formData.append('description', videoData.description);
+      // Все видео в системе являются публичными по умолчанию
       
       const response = await videoService.uploadVideo(
         formData,
@@ -179,7 +179,7 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
   
   // Переход к следующему шагу
   const nextStep = () => {
-    if (currentStep < 4) {
+    if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -201,14 +201,14 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
       {/* Индикатор прогресса */}
       <div className="mb-8">
         <div className="flex justify-between mb-2">
-          {[1, 2, 3, 4].map(step => (
+          {[1, 2, 3].map(step => (
             <div key={step} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                 currentStep >= step ? 'bg-primary text-white' : 'bg-gray-800 text-gray-400'
               }`}>
                 {step}
               </div>
-              {step < 4 && (
+              {step < 3 && (
                 <div className={`w-16 h-1 mx-2 ${
                   currentStep > step ? 'bg-primary' : 'bg-gray-800'
                 }`} />
@@ -220,7 +220,6 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
           <span>Файл</span>
           <span>Миниатюра</span>
           <span>Информация</span>
-          <span>Приватность</span>
         </div>
       </div>
       
@@ -332,7 +331,7 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
         </motion.div>
       )}
       
-      {/* Шаг 3: Метаданные видео */}
+      {/* Шаг 3: Метаданные видео и загрузка */}
       {currentStep === 3 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -372,61 +371,6 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
                   placeholder="Опишите ваше видео"
                 />
               </div>
-            </div>
-          </div>
-          
-          <div className="flex justify-between">
-            <Button variant="secondary" onClick={prevStep}>
-              Назад
-            </Button>
-            <Button variant="primary" onClick={nextStep}>
-              Далее
-            </Button>
-          </div>
-        </motion.div>
-      )}
-      
-      {/* Шаг 4: Настройки приватности и загрузка */}
-      {currentStep === 4 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <div className="mb-6">
-            <h3 className="text-lg font-medium text-white mb-4">Настройки приватности</h3>
-            
-            <div className="space-y-3">
-              {[
-                { value: 'public', label: 'Публичное', description: 'Видно всем пользователям и в поиске' },
-                { value: 'unlisted', label: 'Доступ по ссылке', description: 'Видно только по прямой ссылке' },
-                { value: 'private', label: 'Приватное', description: 'Видно только вам' }
-              ].map(option => (
-                <div 
-                  key={option.value}
-                  className={`p-4 rounded-lg border cursor-pointer transition-colors duration-200 ${
-                    videoData.privacy === option.value 
-                      ? 'border-primary bg-blue-900 bg-opacity-20' 
-                      : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                  onClick={() => setVideoData(prev => ({ ...prev, privacy: option.value }))}
-                >
-                  <div className="flex items-start">
-                    <div className={`mt-1 w-4 h-4 rounded-full border flex items-center justify-center mr-3 ${
-                      videoData.privacy === option.value 
-                        ? 'border-primary' 
-                        : 'border-gray-500'
-                    }`}>
-                      {videoData.privacy === option.value && (
-                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-white">{option.label}</h4>
-                      <p className="text-sm text-gray-400">{option.description}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
           

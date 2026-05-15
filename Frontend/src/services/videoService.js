@@ -133,6 +133,20 @@ export const videoService = {
     }
   },
   
+  // Удаление реакции (лайка/дизлайка) с видео
+  removeReaction: async (videoId) => {
+    try {
+      const response = await videoApiClient.delete(`/videos/${videoId}/reaction`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка при удалении реакции');
+    }
+  },
+  
   // Увеличение счетчика просмотров
   viewVideo: async (videoId) => {
     try {
@@ -165,16 +179,15 @@ export const videoService = {
   // Получение комментариев к видео
   getVideoComments: async (videoId, params = {}) => {
     try {
-      // Пока комментарии не реализованы в бэкенде, возвращаем моковые данные
-      // В реальном приложении:
-      // const response = await videoApiClient.get(`/videos/${videoId}/comments`, { params });
-      // const data = handleApiResponse(response.data);
-      // return adaptCommentsList(data?.comments || data || []);
+      const response = await videoApiClient.get(`/videos/${videoId}/comments`, { params });
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
       
+      // Возвращаем адаптированные данные
       return {
-        comments: [],
-        count: 0,
-        hasMore: false
+        comments: Array.isArray(data?.comments) ? data.comments : Array.isArray(data) ? data : [],
+        count: data?.count || data?.total || 0,
+        hasMore: data?.hasMore || data?.has_more || false
       };
     } catch (error) {
       throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения комментариев');
@@ -184,15 +197,51 @@ export const videoService = {
   // Добавление комментария к видео
   addVideoComment: async (videoId, commentData) => {
     try {
-      // Пока комментарии не реализованы в бэкенде, выбрасываем ошибку
-      throw new Error('Функция комментариев находится в разработке');
+      const response = await videoApiClient.post(`/videos/${videoId}/comments`, commentData);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
       
-      // В реальном приложении:
-      // const response = await videoApiClient.post(`/videos/${videoId}/comments`, commentData);
-      // const data = handleApiResponse(response.data);
-      // return adaptCommentData(data);
+      // Возвращаем адаптированные данные
+      return data;
     } catch (error) {
       throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка добавления комментария');
+    }
+  },
+
+  // Удаление комментария
+  deleteComment: async (commentId) => {
+    try {
+      const response = await videoApiClient.delete(`/comments/${commentId}`);
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка удаления комментария');
+    }
+  },
+  
+  // Получение популярных видео за последние 7 дней
+  getPopularVideos: async (params = {}) => {
+    try {
+      const response = await videoApiClient.get('/videos/popular', { 
+        params: {
+          days: 7, // Видео за последние 7 дней
+          sortBy: 'views', // Сортировка по просмотрам
+          ...params
+        }
+      });
+      
+      // Адаптация к формату ответа бэкенда ApiResponse<T>
+      const data = handleApiResponse(response.data);
+      
+      // Возвращаем адаптированные данные
+      return Array.isArray(data) ? { videos: adaptVideosList(data) } : 
+             Array.isArray(data?.data) ? { videos: adaptVideosList(data.data) } :
+             { videos: adaptVideosList(data?.videos || data || []) };
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения популярных видео');
     }
   },
 };

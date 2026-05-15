@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
+import { handleApiResponse } from '../utils/adapterUtils';
 
 // Создаем экземпляр axios для работы с подписками
 const subscriptionApiClient = axios.create({
@@ -26,9 +27,9 @@ export const subscriptionService = {
   subscribeToChannel: async (channelId) => {
     try {
       const response = await subscriptionApiClient.post(`/channels/${channelId}/subscribe`);
-      return response.data;
+      return handleApiResponse(response.data);
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка подписки на канал');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка подписки на канал');
     }
   },
   
@@ -36,9 +37,9 @@ export const subscriptionService = {
   unsubscribeFromChannel: async (channelId) => {
     try {
       const response = await subscriptionApiClient.post(`/channels/${channelId}/unsubscribe`);
-      return response.data;
+      return handleApiResponse(response.data);
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка отписки от канала');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка отписки от канала');
     }
   },
   
@@ -46,19 +47,22 @@ export const subscriptionService = {
   getMySubscriptions: async () => {
     try {
       const response = await subscriptionApiClient.get('/users/me/subscriptions');
-      return response.data;
+      const data = handleApiResponse(response.data);
+      // Обработка формата { channels: [...] }
+      if (data && data.channels) {
+        return data.channels;
+      }
+      return data || [];
     } catch (error) {
-      throw new Error(error.response?.data?.error?.message || 'Ошибка получения списка подписок');
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения списка подписок');
     }
   },
   
   // Проверка, подписан ли пользователь на канал
   isSubscribedToChannel: async (channelId) => {
     try {
-      // В реальном API может быть отдельный endpoint для проверки подписки
-      // Здесь мы получаем список подписок и проверяем наличие канала
-      const subscriptions = await subscriptionService.getMySubscriptions();
-      return subscriptions.channels.some(channel => channel.id === channelId);
+      const response = await subscriptionApiClient.get(`/channels/${channelId}/is-subscribed`);
+      return handleApiResponse(response.data);
     } catch (error) {
       // В случае ошибки считаем, что пользователь не подписан
       return false;

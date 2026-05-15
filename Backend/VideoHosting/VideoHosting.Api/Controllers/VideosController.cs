@@ -33,11 +33,11 @@ public class VideosController : ControllerBase
     /// <summary>
     /// Загрузка нового видео
     /// </summary>
-    /// <param name="uploadDto">Данные для загрузки видео</param>
+    /// <param name="uploadModel">Данные для загрузки видео</param>
     /// <returns>Информация о загруженном видео</returns>
     [HttpPost("upload")]
     [Authorize]
-    public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadDto uploadDto)
+    public async Task<ActionResult<VideoDto>> UploadVideo([FromForm] VideoUploadModel uploadModel)
     {
         try
         {
@@ -49,29 +49,29 @@ public class VideosController : ControllerBase
             }
 
             // Загрузка видео файла в MinIO
-            var videoFileName = $"{Guid.NewGuid()}_{uploadDto.VideoFile.FileName}";
+            var videoFileName = $"{Guid.NewGuid()}_{uploadModel.VideoFile.FileName}";
             var videoUrl = await _minioService.UploadVideoAsync(
-                uploadDto.VideoFile.OpenReadStream(),
+                uploadModel.VideoFile.OpenReadStream(),
                 videoFileName,
-                uploadDto.VideoFile.ContentType);
+                uploadModel.VideoFile.ContentType);
 
             // Загрузка миниатюры (если предоставлена)
             string? thumbnailUrl = null;
-            if (uploadDto.ThumbnailFile != null)
+            if (uploadModel.ThumbnailFile != null)
             {
-                var thumbnailFileName = $"{Guid.NewGuid()}_{uploadDto.ThumbnailFile.FileName}";
+                var thumbnailFileName = $"{Guid.NewGuid()}_{uploadModel.ThumbnailFile.FileName}";
                 thumbnailUrl = await _minioService.UploadThumbnailAsync(
-                    uploadDto.ThumbnailFile.OpenReadStream(),
+                    uploadModel.ThumbnailFile.OpenReadStream(),
                     thumbnailFileName,
-                    uploadDto.ThumbnailFile.ContentType);
+                    uploadModel.ThumbnailFile.ContentType);
             }
 
             // Создание записи о видео в БД
             var videoDto = new VideoDto
             {
                 Id = Guid.NewGuid(),
-                Title = uploadDto.Title,
-                Description = uploadDto.Description,
+                Title = uploadModel.Title,
+                Description = uploadModel.Description,
                 OriginalVideoUrl = videoUrl,
                 ThumbnailUrl = thumbnailUrl,
                 Status = "Processing",
@@ -506,6 +506,45 @@ public class VideosController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return NotFound(new { error = new { message = ex.Message } });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
+
+    /// <summary>
+    /// Получение видео по идентификатору канала (пользователя)
+    /// </summary>
+    /// <param name="channelId">ID канала (пользователя)</param>
+    /// <returns>Список видео с канала</returns>
+    [HttpGet("channel/{channelId}")]
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideosByChannelId(Guid channelId)
+    {
+        try
+        {
+            var videos = await _videoService.GetVideosByChannelIdAsync(channelId);
+            return Ok(videos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
+
+    /// <summary>
+    /// Получение популярных видео за последние 7 дней
+    /// </summary>
+    /// <param name="days">Количество дней для фильтрации (по умолчанию 7)</param>
+    /// <param name="sortBy">Параметр сортировки (по умолчанию views)</param>
+    /// <returns>Список популярных видео</returns>
+    [HttpGet("popular")]
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetPopularVideos([FromQuery] int days = 7, [FromQuery] string sortBy = "views")
+    {
+        try
+        {
+            var videos = await _videoService.GetPopularVideosAsync(days);
+            return Ok(videos);
         }
         catch (Exception ex)
         {
