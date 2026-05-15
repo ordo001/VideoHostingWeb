@@ -79,10 +79,10 @@ export const authService = {
   },
 
   // Обновление профиля пользователя
-  updateProfile: async (profileData) => {
+  updateProfile: async (profileData, channelId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await authApiClient.put('/auth/profile', profileData, {
+      const response = await authApiClient.put(`/Channels/${channelId}`, profileData, {
         headers: {
           Authorization: `Bearer ${token}`
         }

@@ -111,7 +111,7 @@ const ProfilePage = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const updatedUser = await authService.updateProfile(editedData);
+      const updatedUser = await authService.updateProfile(editedData, channelId);
       setProfileData(updatedUser);
       setIsEditing(false);
       

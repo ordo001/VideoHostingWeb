@@ -156,7 +156,7 @@ const ChannelPage = () => {
     if (!isOwnChannel) return;
     
     try {
-      const updatedUser = await authService.updateProfile(editedData);
+      const updatedUser = await authService.updateProfile(editedData, channelId);
       
       // Обновляем данные канала после успешного сохранения
       setChannelData(prevData => ({
@@ -349,7 +349,7 @@ const ChannelPage = () => {
           ) : channelVideos.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {channelVideos.map(video => (
-                <VideoCard 
+                /*<VideoCard 
                   key={video.id} 
                   id={video.id}
                   title={video.title}
@@ -358,7 +358,13 @@ const ChannelPage = () => {
                   views={video.views}
                   createdAt={video.created_at}
                   thumbnail={video.thumbnail_url}
-                />
+                />*/
+                  <VideoCard
+                      thumbnail={video.thumbnail_url}
+                      key={video.id}
+                      {...video}
+                      onClick={() => window.open(`/watch/${video.id}`, '_self')}
+                  />
               ))}
             </div>
           ) : (
