@@ -87,7 +87,7 @@ const VideoCard = ({
           <img 
             src={`${BASE_URL}/${thumbnail}`} 
             alt={title}
-            className="w-full h-full object-cover"
+            className="w-full h-full"
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
