@@ -26,6 +26,15 @@ const VideoCard = ({
       navigate(`/watch/${videoId}`);
     }
   };
+  
+  // Обработчик клика на имя автора
+  const handleAuthorClick = (e) => {
+    e.stopPropagation(); // Предотвращаем всплытие события, чтобы не сработал переход на видео
+    if (author?.id) {
+      const channelId = typeof author.id === 'object' ? author.id.toString() : author.id;
+      navigate(`/channel/${channelId}`);
+    }
+  };
   // Форматирование продолжительности видео
   const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -114,7 +123,12 @@ const VideoCard = ({
         </h3>
         
         <div className="flex text-gray-400 text-sm">
-          <span>{author?.name || author?.Name || 'Неизвестный автор'}</span>
+          <span 
+            className="cursor-pointer hover:text-blue-400 transition-colors"
+            onClick={handleAuthorClick}
+          >
+            {author?.name || author?.Name || 'Неизвестный автор'}
+          </span>
           <span className="mx-1">•</span>
           <span>{formatViews(views || 0)} просмотров</span>
           <span className="mx-1">•</span>

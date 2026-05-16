@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import Button from '../components/Button';
@@ -10,6 +10,7 @@ import authService from '../services/authService';
 
 const ProfilePage = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { showNotification } = useUI();
   const isOwnProfile = !userId || (user && user.id === userId);
@@ -115,6 +116,7 @@ const ProfilePage = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
+      const channelId = user?.id || userId;
       const updatedUser = await authService.updateProfile(editedData, channelId);
       setProfileData(prev => ({
         ...prev,
@@ -253,29 +255,44 @@ const ProfilePage = () => {
           </div>
           
           <div className="mt-4 md:mt-0">
-            {isOwnProfile && (
-              isEditing ? (
-                <div className="flex space-x-2">
-                  <Button variant="secondary" onClick={handleCancel} disabled={loading}>
-                    Отмена
-                  </Button>
-                  <Button variant="primary" onClick={handleSave} disabled={loading}>
-                    {loading ? (
-                      <div className="flex items-center">
-                        <Loader size="sm" className="mr-2" />
-                        Сохранение...
-                      </div>
-                    ) : (
-                      'Сохранить'
-                    )}
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="primary" onClick={handleEdit}>
-                  Редактировать профиль
+            <div className="flex flex-col sm:flex-row gap-2">
+              {!isOwnProfile && (
+                <Button 
+                  variant="primary"
+                  onClick={() => navigate(`/channel/${userId}`)}
+                >
+                  Перейти к каналу
                 </Button>
-              )
-            )}
+              )}
+              {isOwnProfile && (
+                isEditing ? (
+                  <div className="flex space-x-2">
+                    <Button variant="secondary" onClick={handleCancel} disabled={loading}>
+                      Отмена
+                    </Button>
+                    <Button variant="primary" onClick={handleSave} disabled={loading}>
+                      {loading ? (
+                        <div className="flex items-center">
+                          <Loader size="sm" className="mr-2" />
+                          Сохранение...
+                        </div>
+                      ) : (
+                        'Сохранить'
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Button variant="secondary" onClick={() => navigate(`/channel/${user.id}`)}>
+                      Мой канал
+                    </Button>
+                    <Button variant="primary" onClick={handleEdit}>
+                      Редактировать профиль
+                    </Button>
+                  </>
+                )
+              )}
+            </div>
           </div>
         </div>
         

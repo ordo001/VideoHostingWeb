@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { useAuthModal } from '../hooks/useAuthModal';
@@ -45,6 +45,7 @@ const formatUploadDate = (dateString) => {
 
 const WatchPage = () => {
   const { videoId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { showNotification } = useUI();
   const { openAuthModal } = useAuthModal();
@@ -541,7 +542,10 @@ const WatchPage = () => {
               
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div className="flex items-center mb-4 sm:mb-0">
-                  <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mr-3">
+                  <div 
+                    className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mr-3 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => navigate(`/channel/${videoData.author.id}`)}
+                  >
                     {videoData.author.avatar ? (
                       <img 
                         src={videoData.author.avatar} 
@@ -555,7 +559,12 @@ const WatchPage = () => {
                     )}
                   </div>
                   <div className="text-left">
-                    <div className="font-medium text-left">{videoData.author.name}</div>
+                    <div 
+                      className="font-medium text-left cursor-pointer hover:text-blue-400 transition-colors"
+                      onClick={() => navigate(`/channel/${videoData.author.id}`)}
+                    >
+                      {videoData.author.name}
+                    </div>
                     <div className="text-sm text-gray-400 text-left">
                       {videoData.author.subscribers_count?.toLocaleString() || 0} подписчиков
                     </div>
@@ -687,7 +696,12 @@ const WatchPage = () => {
                         </div>
                         <div className="flex-1">
                           <div className="bg-gray-900 rounded-2xl p-4">
-                            <div className="font-medium">{comment.author?.name || 'Аноним'}</div>
+                            <div 
+                              className="font-medium cursor-pointer hover:text-blue-400 transition-colors"
+                              onClick={() => navigate(`/channel/${comment.author?.id}`)}
+                            >
+                              {comment.author?.name || 'Аноним'}
+                            </div>
                             <p className="text-gray-300 mt-2">{comment.text || comment.content}</p>
                             <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
                               <div className="flex items-center">

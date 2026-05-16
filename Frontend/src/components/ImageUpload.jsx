@@ -11,7 +11,6 @@ const ImageUpload = ({
   className = '',
   disabled = false,
   showPreview = true,
-  maxSize = 10, // в MB
 }) => {
   const { showNotification } = useUI();
   const [isUploading, setIsUploading] = useState(false);
@@ -24,8 +23,8 @@ const ImageUpload = ({
     if (!file || disabled) return;
     
     try {
-      // Валидация файла
-      fileService.validateImageFile(file);
+      // Валидация файла с указанием типа загрузки
+      fileService.validateImageFile(file, uploadType);
       
       setIsUploading(true);
       
@@ -207,7 +206,7 @@ const ImageUpload = ({
                   {dragActive ? 'Отпустите файл' : 'Нажмите или перетащите'}
                 </p>
                 <p className="text-xs text-gray-600 mt-1">
-                  JPG, PNG, GIF, WebP (max {maxSize}MB)
+                  JPG, PNG, GIF, WebP (max {uploadType === 'avatar' ? '5' : '10'}MB)
                 </p>
               </div>
             )}

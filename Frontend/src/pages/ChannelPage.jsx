@@ -278,7 +278,7 @@ const ChannelPage = () => {
       
       {/* Информация о канале */}
       <div className="container mx-auto px-4">
-        <div className="bg-gray-900 rounded-2xl p-4 md:p-6 -mt-12 relative z-10">
+        <div className="bg-gray-900 rounded-2xl p-4 md:p-6 mt-8 relative z-10 shadow-lg">
           <div className="flex flex-col md:flex-row items-start md:items-center pb-4 md:pb-6">
             {/* Аватар канала */}
             <div className="flex-shrink-0 mb-3 md:mb-0 md:mr-6">
@@ -288,10 +288,10 @@ const ChannelPage = () => {
                   onChange={handleAvatarChange}
                   uploadType="avatar"
                   aspectRatio="square"
-                  className="w-20 h-20 md:w-24 md:h-24 border-2 border-gray-800"
+                  className="w-20 h-20 md:w-24 md:h-24 border-4 border-black shadow-lg"
                 />
               ) : (
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full border-2 border-gray-800 overflow-hidden bg-gray-800">
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-black overflow-hidden bg-gray-800 shadow-lg">
                   {channelData.avatar_url ? (
                     <img 
                       src={channelData.avatar_url} 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUI } from '../../hooks/useUI';
 import adminService from '../../services/adminService';
 import Button from '../../components/Button';
@@ -6,6 +7,7 @@ import Loader from '../../components/Loader';
 import Modal from '../../components/Modal';
 
 const VideosPage = () => {
+  const navigate = useNavigate();
   const { showNotification } = useUI();
   
   const [videos, setVideos] = useState([]);
@@ -211,7 +213,10 @@ const VideosPage = () => {
                         </div>
                       </div>
                       <div className="ml-2">
-                        <div className="text-sm font-medium text-white">
+                        <div 
+                          className="text-sm font-medium text-white cursor-pointer hover:text-blue-400 transition-colors"
+                          onClick={() => navigate(`/channel/${video.author?.id}`)}
+                        >
                           {video.author?.name || 'Неизвестный автор'}
                         </div>
                       </div>

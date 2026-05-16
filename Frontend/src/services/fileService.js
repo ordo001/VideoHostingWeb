@@ -30,10 +30,13 @@ export const fileService = {
   // Загрузка аватара текущего пользователя
   uploadAvatar: async (file) => {
     try {
-      const formData = new FormData();
-      formData.append('avatar', file);
+      // Валидация файла
+      fileService.validateImageFile(file, 'avatar');
       
-      const response = await fileApiClient.post('/Files/avatar', formData);
+      const formData = new FormData();
+      formData.append('avatarFile', file);
+      
+      const response = await fileApiClient.post('/api/files/avatar', formData);
       return handleApiResponse(response.data);
     } catch (error) {
       console.error('Avatar upload error:', error.response?.data);
@@ -44,10 +47,13 @@ export const fileService = {
   // Загрузка баннера для канала текущего пользователя
   uploadBanner: async (file) => {
     try {
-      const formData = new FormData();
-      formData.append('banner', file);
+      // Валидация файла
+      fileService.validateImageFile(file, 'banner');
       
-      const response = await fileApiClient.post('/Files/banner', formData);
+      const formData = new FormData();
+      formData.append('bannerFile', file);
+      
+      const response = await fileApiClient.post('/api/files/banner', formData);
       return handleApiResponse(response.data);
     } catch (error) {
       console.error('Banner upload error:', error.response?.data);
@@ -56,17 +62,30 @@ export const fileService = {
   },
   
   // Валидация файла изображения
-  validateImageFile: (file) => {
+  validateImageFile: (file, uploadType = 'image') => {
     // Проверяем тип файла
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       throw new Error('Неподдерживаемый формат файла. Допустимые форматы: JPEG, PNG, GIF, WebP');
     }
     
-    // Проверяем размер файла (максимальный размер 10MB)
-    const maxSizeInBytes = 10 * 1024 * 1024; // 10 MB
+    // Проверяем размер файла в зависимости от типа загрузки
+    let maxSizeInBytes;
+    let maxSizeText;
+    
+    if (uploadType === 'avatar') {
+      maxSizeInBytes = 5 * 1024 * 1024; // 5 MB
+      maxSizeText = '5 MB';
+    } else if (uploadType === 'banner') {
+      maxSizeInBytes = 10 * 1024 * 1024; // 10 MB
+      maxSizeText = '10 MB';
+    } else {
+      maxSizeInBytes = 10 * 1024 * 1024; // 10 MB по умолчанию
+      maxSizeText = '10 MB';
+    }
+    
     if (file.size > maxSizeInBytes) {
-      throw new Error('Размер файла превышает максимально допустимый (10 MB)');
+      throw new Error(`Размер файла превышает максимально допустимый (${maxSizeText})`);
     }
     
     return true;
