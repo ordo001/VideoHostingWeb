@@ -200,19 +200,18 @@ const VideoUpload = ({ onSuccess, onCancel }) => {
       
       {/* Индикатор прогресса */}
       <div className="mb-8">
-        <div className="flex justify-between mb-2">
+        <div className="flex justify-between mb-2 relative">
+          <div className="absolute top-4 left-9 right-9 h-1 bg-gray-800"></div>
+          <div className={`absolute top-4 left-9 h-1 transition-all duration-300 ${
+            currentStep === 2 ? 'w-1/2' : currentStep === 3 ? 'w-full' : 'w-0'
+          } ${currentStep > 1 ? 'bg-primary' : ''}`}></div>
           {[1, 2, 3].map(step => (
             <div key={step} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center relative z-10 ${
                 currentStep >= step ? 'bg-primary text-white' : 'bg-gray-800 text-gray-400'
               }`}>
                 {step}
               </div>
-              {step < 3 && (
-                <div className={`w-16 h-1 mx-2 ${
-                  currentStep > step ? 'bg-primary' : 'bg-gray-800'
-                }`} />
-              )}
             </div>
           ))}
         </div>

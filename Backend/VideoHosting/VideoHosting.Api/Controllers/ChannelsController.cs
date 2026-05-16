@@ -241,4 +241,68 @@ public class ChannelsController : ControllerBase
             return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
         }
     }
+
+    /// <summary>
+    /// Обновление информации о канале
+    /// </summary>
+    /// <param name="channelId">ID канала</param>
+    /// <param name="updateChannelDto">Данные для обновления</param>
+    /// <returns>Обновленная информация о канале</returns>
+    [HttpPut("{channelId}")]
+    [Authorize]
+    public async Task<ActionResult<UserDto>> UpdateChannel(Guid channelId, UpdateChannelDto updateChannelDto)
+    {
+        try
+        {
+            // Получение ID текущего пользователя из токена
+            if (!TryGetCurrentUserId(out var currentUserId))
+            {
+                return Unauthorized(new { error = new { message = "Неверный токен доступа" } });
+            }
+
+            // Проверка, что текущий пользователь является владельцем канала
+            if (currentUserId != channelId)
+            {
+                var currentUser = await _userService.GetUserByIdAsync(currentUserId);
+                if (currentUser == null || !currentUser.IsAdmin)
+                {
+                    return Forbid();
+                }
+            }
+
+            // Получение текущей информации о канале
+            var existingChannel = await _userService.GetUserByIdAsync(channelId);
+            if (existingChannel == null)
+            {
+                return NotFound(new { error = new { message = "Канал не найден" } });
+            }
+
+            // Обновление данных канала
+            existingChannel.Name = updateChannelDto.Name;
+            existingChannel.Description = updateChannelDto.Description;
+            existingChannel.AvatarUrl = updateChannelDto.AvatarUrl ?? existingChannel.AvatarUrl;
+            existingChannel.BannerUrl = updateChannelDto.BannerUrl ?? existingChannel.BannerUrl;
+            
+            try
+            {
+                await _userService.UpdateUserAsync(existingChannel);
+            }
+            catch (InvalidOperationException ex)
+            {
+                if (ex.Message.Contains("Пользователь не найден"))
+                {
+                    return NotFound(new { error = new { message = "Канал не найден" } });
+                }
+                throw; // Пробрасываем другие исключения
+            }
+
+            // Получение обновленных данных канала
+            var updatedChannel = await _userService.GetUserByIdAsync(channelId);
+            return Ok(updatedChannel);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
 }

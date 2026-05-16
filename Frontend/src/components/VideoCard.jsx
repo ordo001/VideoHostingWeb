@@ -26,6 +26,15 @@ const VideoCard = ({
       navigate(`/watch/${videoId}`);
     }
   };
+  
+  // Обработчик клика на имя автора
+  const handleAuthorClick = (e) => {
+    e.stopPropagation(); // Предотвращаем всплытие события, чтобы не сработал переход на видео
+    if (author?.id) {
+      const channelId = typeof author.id === 'object' ? author.id.toString() : author.id;
+      navigate(`/channel/${channelId}`);
+    }
+  };
   // Форматирование продолжительности видео
   const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -51,21 +60,32 @@ const VideoCard = ({
   
   // Форматирование даты
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    if (!dateString) return 'Неизвестная дата';
     
-    if (diffInDays === 0) return 'Сегодня';
-    if (diffInDays === 1) return 'Вчера';
-    if (diffInDays < 7) return `${diffInDays} дней назад`;
-    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} недель назад`;
-    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} месяцев назад`;
-    return `${Math.floor(diffInDays / 365)} лет назад`;
+    try {
+      const date = new Date(dateString);
+      // Проверяем, является ли дата валидной
+      if (isNaN(date.getTime())) {
+        return 'Неизвестная дата';
+      }
+      
+      const now = new Date();
+      const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      
+      if (diffInDays === 0) return 'Сегодня';
+      if (diffInDays === 1) return 'Вчера';
+      if (diffInDays < 7) return `${diffInDays} дней назад`;
+      if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} недель назад`;
+      if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} месяцев назад`;
+      return `${Math.floor(diffInDays / 365)} лет назад`;
+    } catch (error) {
+      return 'Неизвестная дата';
+    }
   };
   
   return (
     <motion.div
-      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group ${className}`}
+      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group w-full ${className}`}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.2 }}
       onClick={handleCardClick}
@@ -76,7 +96,7 @@ const VideoCard = ({
           <img 
             src={`${BASE_URL}/${thumbnail}`} 
             alt={title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full"
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
@@ -97,41 +117,22 @@ const VideoCard = ({
       </div>
       
       {/* Video info */}
-      <div className="p-4">
-        <div className="flex">
-          {/* Author avatar */}
-          <div className="flex-shrink-0 mr-3">
-            {author?.avatar || author?.AvatarUrl || author?.avatar_url ? (
-              <img 
-                src={author?.avatar_url || author?.AvatarUrl || author?.avatar} 
-                alt={author?.name || author?.Name || 'Автор'}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {(author?.name?.charAt(0) || author?.Name?.charAt(0) || '?').toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
-          
-          {/* Video details */}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white font-medium line-clamp-2 mb-1">
-              {title || 'Без названия'}
-            </h3>
-            
-            <p className="text-gray-400 text-sm mb-1">
-              {author?.name || author?.Name || 'Неизвестный автор'}
-            </p>
-            
-            <div className="flex text-gray-500 text-xs">
-              <span>{formatViews(views || 0)} просмотров</span>
-              <span className="mx-1">•</span>
-              <span>{formatDate(createdAt)}</span>
-            </div>
-          </div>
+      <div className="p-3">
+        <h3 className="text-white font-medium line-clamp-2 mb-2 text-left">
+          {title || 'Без названия'}
+        </h3>
+        
+        <div className="flex text-gray-400 text-sm">
+          <span 
+            className="cursor-pointer hover:text-blue-400 transition-colors"
+            onClick={handleAuthorClick}
+          >
+            {author?.name || author?.Name || 'Неизвестный автор'}
+          </span>
+          <span className="mx-1">•</span>
+          <span>{formatViews(views || 0)} просмотров</span>
+          <span className="mx-1">•</span>
+          <span>{formatDate(createdAt)}</span>
         </div>
       </div>
     </motion.div>

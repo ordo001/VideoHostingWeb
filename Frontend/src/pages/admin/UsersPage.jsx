@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUI } from '../../hooks/useUI';
 import adminService from '../../services/adminService';
 import Button from '../../components/Button';
 import Loader from '../../components/Loader';
 
 const UsersPage = () => {
+  const navigate = useNavigate();
   const { showNotification } = useUI();
   
   const [users, setUsers] = useState([]);
@@ -206,7 +208,12 @@ const UsersPage = () => {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-white">{user.name}</div>
+                        <div 
+                          className="text-sm font-medium text-white cursor-pointer hover:text-blue-400 transition-colors"
+                          onClick={() => navigate(`/channel/${user.id}`)}
+                        >
+                          {user.name}
+                        </div>
                         {user.is_admin && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-900 bg-opacity-50 text-purple-300">
                             Админ
@@ -237,6 +244,13 @@ const UsersPage = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/channel/${user.id}`)}
+                      >
+                        Канал
+                      </Button>
                       <Button
                         variant={user.is_banned ? "primary" : "secondary"}
                         size="sm"

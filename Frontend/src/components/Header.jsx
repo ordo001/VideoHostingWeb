@@ -5,6 +5,7 @@ import { useAuthModal } from '../hooks/useAuthModal';
 import Button from './Button';
 
 const Header = () => {
+  const BASE_URL = 'http://localhost:9000';
   const { isAuthenticated, user } = useAuth();
   const { openAuthModal } = useAuthModal();
   
@@ -68,8 +69,8 @@ const Header = () => {
                   <Link to={`/channel/${user?.id || 'me'}`} className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center">
                       {user?.avatar || user?.avatar_url ? (
-                        <img 
-                          src={user?.avatar || user?.avatar_url} 
+                        <img
+                          src={`${BASE_URL}/${user.avatar}`} 
                           alt={user.name} 
                           className="w-full h-full rounded-full object-cover"
                         />
