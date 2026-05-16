@@ -53,7 +53,7 @@ const DashboardPage = () => {
             </div>
             <div>
               <p className="text-gray-400 text-sm">Пользователи</p>
-<p className="text-2xl font-bold text-white">
+        <p className="text-2xl font-bold text-white">
                 {stats?.totalLikes?.toLocaleString() || 0}
               </p>
             </div>
@@ -108,6 +108,7 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };

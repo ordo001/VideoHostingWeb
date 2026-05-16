@@ -46,7 +46,7 @@ const VideosPage = () => {
       
       try {
         const data = await adminService.getVideosForModeration({
-page: currentPage,
+        page: currentPage,
         pageSize: 20,
         searchTerm: searchTerm,
         moderationStatus: moderationStatus !== "" ? moderationStatus : null,
@@ -319,7 +319,7 @@ page: currentPage,
                         <div className="h-16 w-24 rounded-lg bg-gray-800 flex items-center justify-center">
                           {video.thumbnailUrl ? (
                             <img 
-                              src={video.thumbnailUrl} 
+                              src={`http://localhost:9000/${video.thumbnailUrl}`} 
                               alt={video.title} 
                               className="h-16 w-24 rounded-lg object-cover"
                             />

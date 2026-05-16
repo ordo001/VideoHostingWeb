@@ -172,9 +172,17 @@ const LogsPage = () => {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center">
-                          <span className="font-medium text-gray-300">
-                            {log.adminName?.charAt(0) || '?'}
-                          </span>
+                            {log.avatar ? (
+                                <img
+                                    src={`http://localhost:9000/${log.avatar}`}
+                                    alt={log.adminName}
+                                    className="h-16 w-24 rounded-lg object-cover"
+                                />
+                            ) : (
+                                <span className="font-medium text-gray-300">
+                                    {log.adminName?.charAt(0) || '?'}
+                                </span>
+                            )}
                         </div>
                       </div>
                       <div className="ml-4">

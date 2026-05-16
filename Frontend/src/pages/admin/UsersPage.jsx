@@ -233,9 +233,17 @@ const fetchUsers = async () => {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center">
-                          <span className="font-medium text-gray-300">
-                            {user.userName ? user.userName.charAt(0) : '?'}
-                          </span>
+                            {user.avatar ? (
+                                <img
+                                    src={`http://localhost:9000/${user.avatar}`}
+                                    alt={user.userName}
+                                    className="h-16 w-24 rounded-lg object-cover"
+                                />
+                            ) : (
+                                <span className="font-medium text-gray-300">
+                                    {user.userName ? user.userName.charAt(0) : '?'}
+                                </span>
+                            )}
                         </div>
                       </div>
                       <div className="ml-4">

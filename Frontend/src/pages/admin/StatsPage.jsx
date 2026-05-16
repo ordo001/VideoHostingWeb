@@ -141,6 +141,7 @@ const StatsPage = () => {
         </div>
       </div>
     </div>
+    </div>
   );
 };
 
