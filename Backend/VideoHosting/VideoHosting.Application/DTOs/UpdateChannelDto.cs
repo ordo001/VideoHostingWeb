@@ -10,4 +10,7 @@ public class UpdateChannelDto
     
     [StringLength(500, ErrorMessage = "Описание канала не должно превышать 500 символов")]
     public string? Description { get; set; }
+    
+    public string? AvatarUrl { get; set; }
+    public string? BannerUrl { get; set; }
 }

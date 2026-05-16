@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
 import { handleApiResponse } from '../utils/adapterUtils';
+import channelService from './channelService';
 
 // Создаем экземпляр axios для работы с подписками
 const subscriptionApiClient = axios.create({
@@ -48,11 +49,30 @@ export const subscriptionService = {
     try {
       const response = await subscriptionApiClient.get('/users/me/subscriptions');
       const data = handleApiResponse(response.data);
+      let channels = [];
       // Обработка формата { channels: [...] }
       if (data && data.channels) {
-        return data.channels;
+        channels = data.channels;
+      } else {
+        channels = data || [];
       }
-      return data || [];
+      
+      // Для каждого канала получаем количество видео, если его нет
+      const channelsWithVideoCount = await Promise.all(
+        channels.map(async (channel) => {
+          if (!channel.videos_count || channel.videos_count === 0) {
+            try {
+              const videosData = await channelService.getChannelVideos(channel.id, { limit: 1 });
+              channel.videos_count = videosData.count || 0;
+            } catch (error) {
+              channel.videos_count = 0;
+            }
+          }
+          return channel;
+        })
+      );
+      
+      return channelsWithVideoCount;
     } catch (error) {
       throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения списка подписок');
     }

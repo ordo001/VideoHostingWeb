@@ -5,6 +5,7 @@ import { useUI } from '../hooks/useUI';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Loader from '../components/Loader';
+import ImageUpload from '../components/ImageUpload';
 import authService from '../services/authService';
 
 const ProfilePage = () => {
@@ -15,7 +16,7 @@ const ProfilePage = () => {
   
   const [profileData, setProfileData] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedData, setEditedData] = useState({ name: '', description: '' });
+  const [editedData, setEditedData] = useState({ name: '', description: '', avatar: null });
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   
@@ -46,7 +47,8 @@ const ProfilePage = () => {
         setProfileData(data);
         setEditedData({
           name: data.name || '',
-          description: data.description || ''
+          description: data.description || '',
+          avatar: data.avatar || null
         });
       } catch (error) {
         showNotification({
@@ -96,7 +98,8 @@ const ProfilePage = () => {
     setIsEditing(true);
     setEditedData({
       name: profileData?.name || '',
-      description: profileData?.description || ''
+      description: profileData?.description || '',
+      avatar: profileData?.avatar || null
     });
   };
   
@@ -104,7 +107,8 @@ const ProfilePage = () => {
     setIsEditing(false);
     setEditedData({
       name: profileData?.name || '',
-      description: profileData?.description || ''
+      description: profileData?.description || '',
+      avatar: profileData?.avatar || null
     });
   };
   
@@ -112,7 +116,10 @@ const ProfilePage = () => {
     setLoading(true);
     try {
       const updatedUser = await authService.updateProfile(editedData, channelId);
-      setProfileData(updatedUser);
+      setProfileData(prev => ({
+        ...prev,
+        ...updatedUser
+      }));
       setIsEditing(false);
       
       showNotification({
@@ -129,6 +136,13 @@ const ProfilePage = () => {
     } finally {
       setLoading(false);
     }
+  };
+  
+  const handleAvatarChange = (avatarUrl) => {
+    setEditedData(prev => ({
+      ...prev,
+      avatar: avatarUrl
+    }));
   };
   
   const handleInputChange = (e) => {
@@ -174,19 +188,29 @@ const ProfilePage = () => {
         
         {/* Avatar */}
         <div className="absolute -bottom-16 left-8">
-          <div className="w-32 h-32 rounded-full border-4 border-black bg-gray-800 flex items-center justify-center overflow-hidden">
-            {profileData.avatar ? (
-              <img 
-                src={profileData.avatar} 
-                alt={profileData.name} 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-4xl font-bold text-gray-400">
-                {profileData.name.charAt(0)}
-              </span>
-            )}
-          </div>
+          {isEditing && isOwnProfile ? (
+            <ImageUpload
+              value={editedData.avatar}
+              onChange={handleAvatarChange}
+              uploadType="avatar"
+              aspectRatio="square"
+              className="border-4 border-black"
+            />
+          ) : (
+            <div className="w-32 h-32 rounded-full border-4 border-black bg-gray-800 flex items-center justify-center overflow-hidden">
+              {profileData.avatar ? (
+                <img 
+                  src={profileData.avatar} 
+                  alt={profileData.name} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-4xl font-bold text-gray-400">
+                  {profileData.name.charAt(0)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
       

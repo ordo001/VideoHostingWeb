@@ -280,6 +280,8 @@ public class ChannelsController : ControllerBase
             // Обновление данных канала
             existingChannel.Name = updateChannelDto.Name;
             existingChannel.Description = updateChannelDto.Description;
+            existingChannel.AvatarUrl = updateChannelDto.AvatarUrl ?? existingChannel.AvatarUrl;
+            existingChannel.BannerUrl = updateChannelDto.BannerUrl ?? existingChannel.BannerUrl;
             
             try
             {

@@ -59,8 +59,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
-builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.MinioService>();
-builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
+    builder.Services.AddScoped<IFileService, FileService>();
+    builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.MinioService>();
+    builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {

@@ -9,6 +9,8 @@ public class MinioService : IMinioService
     private readonly IMinioClient _minioClient;
     private const string VideoBucketName = "videos";
     private const string ThumbnailBucketName = "thumbnails";
+    private const string AvatarBucketName = "avatars";
+    private const string BannerBucketName = "banners";
 
     public MinioService(IMinioClient minioClient)
     {
@@ -51,6 +53,42 @@ public class MinioService : IMinioService
         return $"thumbnails/{fileName}";
     }
 
+    public async Task<string> UploadAvatarAsync(Stream avatarStream, string fileName, string contentType)
+    {
+        // Убедимся, что bucket существует
+        await CreateBucketIfNotExists(AvatarBucketName);
+
+        var putObjectArgs = new PutObjectArgs()
+            .WithBucket(AvatarBucketName)
+            .WithObject(fileName)
+            .WithStreamData(avatarStream)
+            .WithObjectSize(avatarStream.Length)
+            .WithContentType(contentType);
+
+        await _minioClient.PutObjectAsync(putObjectArgs);
+
+        // Возвращаем путь к файлу
+        return $"avatars/{fileName}";
+    }
+
+    public async Task<string> UploadBannerAsync(Stream bannerStream, string fileName, string contentType)
+    {
+        // Убедимся, что bucket существует
+        await CreateBucketIfNotExists(BannerBucketName);
+
+        var putObjectArgs = new PutObjectArgs()
+            .WithBucket(BannerBucketName)
+            .WithObject(fileName)
+            .WithStreamData(bannerStream)
+            .WithObjectSize(bannerStream.Length)
+            .WithContentType(contentType);
+
+        await _minioClient.PutObjectAsync(putObjectArgs);
+
+        // Возвращаем путь к файлу
+        return $"banners/{fileName}";
+    }
+
     public async Task DeleteVideoAsync(string videoUrl)
     {
         var objectName = videoUrl.Replace("videos/", "");
@@ -68,6 +106,28 @@ public class MinioService : IMinioService
         
         var removeObjectArgs = new RemoveObjectArgs()
             .WithBucket(ThumbnailBucketName)
+            .WithObject(objectName);
+
+        await _minioClient.RemoveObjectAsync(removeObjectArgs);
+    }
+
+    public async Task DeleteAvatarAsync(string avatarUrl)
+    {
+        var objectName = avatarUrl.Replace("avatars/", "");
+        
+        var removeObjectArgs = new RemoveObjectArgs()
+            .WithBucket(AvatarBucketName)
+            .WithObject(objectName);
+
+        await _minioClient.RemoveObjectAsync(removeObjectArgs);
+    }
+
+    public async Task DeleteBannerAsync(string bannerUrl)
+    {
+        var objectName = bannerUrl.Replace("banners/", "");
+        
+        var removeObjectArgs = new RemoveObjectArgs()
+            .WithBucket(BannerBucketName)
             .WithObject(objectName);
 
         await _minioClient.RemoveObjectAsync(removeObjectArgs);
@@ -101,6 +161,16 @@ public class MinioService : IMinioService
         {
             bucketName = ThumbnailBucketName;
             actualObjectName = objectName.Replace("thumbnails/", "");
+        }
+        else if (objectName.StartsWith("avatars/"))
+        {
+            bucketName = AvatarBucketName;
+            actualObjectName = objectName.Replace("avatars/", "");
+        }
+        else if (objectName.StartsWith("banners/"))
+        {
+            bucketName = BannerBucketName;
+            actualObjectName = objectName.Replace("banners/", "");
         }
         else
         {

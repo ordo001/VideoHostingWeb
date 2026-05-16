@@ -76,18 +76,18 @@ const VideoCard = ({
   
   return (
     <motion.div
-      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group w-[calc(100%+6px)] ${className}`}
+      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group w-full ${className}`}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.2 }}
       onClick={handleCardClick}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video overflow-hidden">
+      <div className="relative aspect-video w-full">
         {thumbnail ? (
           <img 
             src={`${BASE_URL}/${thumbnail}`} 
             alt={title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
@@ -109,40 +109,16 @@ const VideoCard = ({
       
       {/* Video info */}
       <div className="p-3">
-        <div className="flex">
-          {/* Author avatar */}
-          <div className="flex-shrink-0 mr-3">
-            {author?.avatar || author?.AvatarUrl || author?.avatar_url ? (
-              <img 
-                src={author?.avatar_url || author?.AvatarUrl || author?.avatar} 
-                alt={author?.name || author?.Name || 'Автор'}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {(author?.name?.charAt(0) || author?.Name?.charAt(0) || '?').toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
-          
-          {/* Video details */}
-          <div className="flex-1 min-w-0 text-left">
-            <h3 className="text-white font-medium line-clamp-2 mb-1 text-left">
-              {title || 'Без названия'}
-            </h3>
-            
-            <p className="text-gray-400 text-sm mb-1 text-left">
-              {author?.name || author?.Name || 'Неизвестный автор'}
-            </p>
-            
-            <div className="flex text-gray-500 text-xs text-left">
-              <span>{formatViews(views || 0)} просмотров</span>
-              <span className="mx-1">•</span>
-              <span>{formatDate(createdAt)}</span>
-            </div>
-          </div>
+        <h3 className="text-white font-medium line-clamp-2 mb-2 text-left">
+          {title || 'Без названия'}
+        </h3>
+        
+        <div className="flex text-gray-400 text-sm">
+          <span>{author?.name || author?.Name || 'Неизвестный автор'}</span>
+          <span className="mx-1">•</span>
+          <span>{formatViews(views || 0)} просмотров</span>
+          <span className="mx-1">•</span>
+          <span>{formatDate(createdAt)}</span>
         </div>
       </div>
     </motion.div>
