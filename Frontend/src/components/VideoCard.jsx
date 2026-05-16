@@ -82,7 +82,7 @@ const VideoCard = ({
       onClick={handleCardClick}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video w-full">
+      <div className="relative aspect-video overflow-hidden">
         {thumbnail ? (
           <img 
             src={`${BASE_URL}/${thumbnail}`} 

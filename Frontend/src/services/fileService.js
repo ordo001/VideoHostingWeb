@@ -33,7 +33,7 @@ export const fileService = {
       const formData = new FormData();
       formData.append('avatar', file);
       
-      const response = await fileApiClient.post('/api/files/avatar', formData);
+      const response = await fileApiClient.post('/Files/avatar', formData);
       return handleApiResponse(response.data);
     } catch (error) {
       console.error('Avatar upload error:', error.response?.data);
@@ -47,7 +47,7 @@ export const fileService = {
       const formData = new FormData();
       formData.append('banner', file);
       
-      const response = await fileApiClient.post('/api/files/banner', formData);
+      const response = await fileApiClient.post('/Files/banner', formData);
       return handleApiResponse(response.data);
     } catch (error) {
       console.error('Banner upload error:', error.response?.data);
