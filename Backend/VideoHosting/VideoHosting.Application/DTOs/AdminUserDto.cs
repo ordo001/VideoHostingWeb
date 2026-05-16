@@ -13,4 +13,5 @@ public class AdminUserDto
     public DateTime? LastLoginDate { get; set; }
     public int VideoCount { get; set; }
     public int TotalViews { get; set; }
+    public string? AvatarUrl { get; set; }
 }

@@ -65,7 +65,8 @@ public class AdminService : IAdminService
                 RegistrationDate = u.CreatedAt,
                 LastLoginDate = u.LastLoginAt,
                 VideoCount = u.Videos.Count,
-                TotalViews = u.Videos.Sum(v => v.Views)
+                TotalViews = u.Videos.Sum(v => v.Views),
+                AvatarUrl = u.AvatarUrl
             })
             .ToListAsync();
 
@@ -456,7 +457,8 @@ public class AdminService : IAdminService
                 Details = l.Details,
                 IpAddress = l.IpAddress ?? "",
                 UserAgent = l.UserAgent ?? "",
-                Timestamp = l.CreatedAt
+                Timestamp = l.CreatedAt,
+                AdminAvatarUrl = l.AdminUser.AvatarUrl
             })
             .ToListAsync();
 

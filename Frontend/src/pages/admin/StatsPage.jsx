@@ -74,22 +74,92 @@ const StatsPage = () => {
         </div>
       </div>
       
-      {/* Основные метрики */}
+{/* Основные метрики */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Карточка пользователей */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <div className="flex items-center">
-            <div className="p-3 rounded-lg bg-blue-900 bg-opacity-20 mr-4">
-              <span className="text-2xl">👥</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 rounded-lg bg-blue-900 bg-opacity-20 mr-4">
+                <span className="text-2xl">👥</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Всего пользователей</p>
+                <p className="text-2xl font-bold text-white">
+                  {stats?.totalUsers?.toLocaleString() || 0}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-400 text-sm">Всего пользователей</p>
-<p className="text-2xl font-bold text-white">
-                {stats?.totalLikes?.toLocaleString() || 0}
-              </p>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-green-400">
+              Новые: +{stats?.newUsers?.toLocaleString() || 0}
+            </p>
+          </div>
+        </div>
+        
+        {/* Карточка видео */}
+        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 rounded-lg bg-purple-900 bg-opacity-20 mr-4">
+                <span className="text-2xl">🎬</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Всего видео</p>
+                <p className="text-2xl font-bold text-white">
+                  {stats?.totalVideos?.toLocaleString() || 0}
+                </p>
+              </div>
             </div>
-            <div className="mt-4">
-              <p className="text-sm text-green-400">
-                Новые: +{stats?.newLikes?.toLocaleString() || 0}
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-green-400">
+              Новые: +{stats?.newVideos?.toLocaleString() || 0}
+            </p>
+          </div>
+        </div>
+        
+        {/* Карточка просмотров */}
+        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 rounded-lg bg-green-900 bg-opacity-20 mr-4">
+                <span className="text-2xl">👁️</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Всего просмотров</p>
+                <p className="text-2xl font-bold text-white">
+                  {stats?.totalViews?.toLocaleString() || 0}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-green-400">
+              Новые: +{stats?.newViews?.toLocaleString() || 0}
+            </p>
+          </div>
+        </div>
+        
+        {/* Карточка лайков */}
+        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 rounded-lg bg-red-900 bg-opacity-20 mr-4">
+                <span className="text-2xl">❤️</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Всего лайков</p>
+                <p className="text-2xl font-bold text-white">
+                  {stats?.totalLikes?.toLocaleString() || 0}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-green-400">
+              Новые: +{stats?.newLikes?.toLocaleString() || 0}
             </p>
           </div>
         </div>

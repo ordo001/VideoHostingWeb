@@ -62,10 +62,10 @@ const AdminLayout = ({ children }) => {
           
           <div className="absolute bottom-0 w-64 p-4 border-t border-gray-800">
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3">
-                {user.avatar ? (
+              <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 overflow-hidden">
+                {user.avatarUrl ? (
                   <img 
-                    src={user.avatar} 
+                    src={user.avatarUrl} 
                     alt={user.name} 
                     className="w-full h-full rounded-full object-cover"
                   />
