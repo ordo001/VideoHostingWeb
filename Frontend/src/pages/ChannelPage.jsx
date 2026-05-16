@@ -174,7 +174,9 @@ const ChannelPage = () => {
       setChannelData(prevData => ({
         ...prevData,
         name: updatedUser.name,
-        description: updatedUser.description
+        description: updatedUser.description,
+        avatar_url: editedData.avatar_url || prevData.avatar_url,
+        banner_url: editedData.banner_url || prevData.banner_url
       }));
       
       // Обновляем данные пользователя в authStore
@@ -255,7 +257,7 @@ const ChannelPage = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Баннер канала */}
-      <div className="h-48 md:h-64 relative">
+      <div className="h-48 md:h-64 relative z-0">
         {isEditing && isOwnChannel ? (
           <ImageUpload
             value={editedData.banner_url}
@@ -278,7 +280,7 @@ const ChannelPage = () => {
       
       {/* Информация о канале */}
       <div className="container mx-auto px-4">
-        <div className="bg-gray-900 rounded-2xl p-4 md:p-6 -mt-12 relative z-10">
+        <div className="bg-gray-900 rounded-2xl p-4 md:p-6 -mt-12 relative z-20">
           <div className="flex flex-col md:flex-row items-start md:items-center pb-4 md:pb-6">
             {/* Аватар канала */}
             <div className="flex-shrink-0 mb-3 md:mb-0 md:mr-6">

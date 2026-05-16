@@ -47,8 +47,12 @@ export const subscriptionService = {
   // Получение списка подписок текущего пользователя
   getMySubscriptions: async () => {
     try {
+      console.log('Загружаем подписки...');
       const response = await subscriptionApiClient.get('/users/me/subscriptions');
+      console.log('Ответ сервера для подписок:', response.data);
       const data = handleApiResponse(response.data);
+      console.log('Обработанные данные подписок:', data);
+      
       let channels = [];
       // Обработка формата { channels: [...] }
       if (data && data.channels) {
@@ -60,20 +64,27 @@ export const subscriptionService = {
       // Для каждого канала получаем количество видео, если его нет
       const channelsWithVideoCount = await Promise.all(
         channels.map(async (channel) => {
-          if (!channel.videos_count || channel.videos_count === 0) {
+          // Проверяем, есть ли поле videos_count, если нет или оно равно 0, получаем его
+          if (!channel.videos_count && channel.videos_count !== 0) {
             try {
               const videosData = await channelService.getChannelVideos(channel.id, { limit: 1 });
-              channel.videos_count = videosData.count || 0;
+              channel.videos_count = videosData.count || videosData.totalCount || 0;
+              console.log(`Канал ${channel.name}: ${channel.videos_count} видео`);
             } catch (error) {
+              console.error(`Ошибка получения количества видео для канала ${channel.id}:`, error);
               channel.videos_count = 0;
             }
+          } else {
+            console.log(`Канал ${channel.name}: уже есть videos_count = ${channel.videos_count}`);
           }
           return channel;
         })
       );
       
+      console.log('Итоговые данные каналов с количеством видео:', channelsWithVideoCount);
       return channelsWithVideoCount;
     } catch (error) {
+      console.error('Ошибка получения списка подписок:', error);
       throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения списка подписок');
     }
   },
