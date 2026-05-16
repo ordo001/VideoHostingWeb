@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { useAuthModal } from '../hooks/useAuthModal';
@@ -48,7 +48,6 @@ const WatchPage = () => {
   const { user } = useAuth();
   const { showNotification } = useUI();
   const { openAuthModal } = useAuthModal();
-  const navigate = useNavigate();
   
   const [videoData, setVideoData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,12 +64,6 @@ const WatchPage = () => {
   const [newComment, setNewComment] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsCount, setCommentsCount] = useState(0);
-  
-  // Обработчик перехода на канал
-  const handleChannelClick = (channelId) => {
-    if (!channelId) return;
-    navigate(`/channel/${channelId}`);
-  };
   
   // Загружаем данные видео
   useEffect(() => {
@@ -548,28 +541,23 @@ const WatchPage = () => {
               
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div className="flex items-center mb-4 sm:mb-0">
-                  <div 
-                    className="flex items-center cursor-pointer hover:bg-gray-800 rounded-lg p-2 -m-2 transition-colors"
-                    onClick={() => handleChannelClick(videoData.author.id)}
-                  >
-                    <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mr-3">
-                      {videoData.author.avatar ? (
-                        <img 
-                          src={videoData.author.avatar} 
-                          alt={videoData.author.name} 
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="font-medium text-gray-300">
-                          {videoData.author.name.charAt(0)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium text-left hover:text-primary transition-colors">{videoData.author.name}</div>
-                      <div className="text-sm text-gray-400 text-left">
-                        {videoData.author.subscribers_count?.toLocaleString() || 0} подписчиков
-                      </div>
+                  <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mr-3">
+                    {videoData.author.avatar ? (
+                      <img 
+                        src={videoData.author.avatar} 
+                        alt={videoData.author.name} 
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="font-medium text-gray-300">
+                        {videoData.author.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-left">{videoData.author.name}</div>
+                    <div className="text-sm text-gray-400 text-left">
+                      {videoData.author.subscribers_count?.toLocaleString() || 0} подписчиков
                     </div>
                   </div>
                 </div>

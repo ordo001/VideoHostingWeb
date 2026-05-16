@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../constants/config';
+
+const BASE_URL = 'http://localhost:9000';
 const VideoCard = ({ 
   id = '', // Обеспечиваем значение по умолчанию
   thumbnail, 
@@ -75,19 +76,19 @@ const VideoCard = ({
   
   return (
     <motion.div
-      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group w-full min-h-[320px] flex flex-col ${className}`}
+      className={`bg-gray-900 rounded-2xl overflow-hidden cursor-pointer group w-full ${className}`}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.2 }}
       onClick={handleCardClick}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video overflow-hidden h-48">
-{thumbnail ? (
-           <img 
-             src={thumbnail.startsWith('http') ? thumbnail : `${API_BASE_URL.replace('/api', '')}/${thumbnail}`} 
-             alt={title}
-             className="w-full h-full"
-           />
+      <div className="relative aspect-video overflow-hidden">
+        {thumbnail ? (
+          <img 
+            src={`${BASE_URL}/${thumbnail}`} 
+            alt={title}
+            className="w-full h-full"
+          />
         ) : (
           <div className="w-full h-full bg-gray-800 flex items-center justify-center">
             <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center">
@@ -107,18 +108,17 @@ const VideoCard = ({
       </div>
       
       {/* Video info */}
-      <div className="p-4 flex-grow">
-        <h3 className="text-white font-medium text-base line-clamp-2 mb-2 text-left min-h-[2.5rem]">
+      <div className="p-3">
+        <h3 className="text-white font-medium line-clamp-2 mb-2 text-left">
           {title || 'Без названия'}
         </h3>
         
-        <div className="flex flex-col text-gray-400 text-sm">
-          <span className="truncate font-medium">{author?.name || author?.Name || 'Неизвестный автор'}</span>
-          <div className="flex mt-1">
-            <span>{formatViews(views || 0)} просмотров</span>
-            <span className="mx-1">•</span>
-            <span>{formatDate(createdAt)}</span>
-          </div>
+        <div className="flex text-gray-400 text-sm">
+          <span>{author?.name || author?.Name || 'Неизвестный автор'}</span>
+          <span className="mx-1">•</span>
+          <span>{formatViews(views || 0)} просмотров</span>
+          <span className="mx-1">•</span>
+          <span>{formatDate(createdAt)}</span>
         </div>
       </div>
     </motion.div>

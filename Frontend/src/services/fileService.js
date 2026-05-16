@@ -2,12 +2,9 @@ import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
 import { handleApiResponse } from '../utils/adapterUtils';
 
-// Используем тот же порт, что и для основного API, но без /api
-const API_FILE_URL = API_BASE_URL.replace('/api', '');
-
 // Создаем экземпляр axios для работы с файлами
 const fileApiClient = axios.create({
-  baseURL: API_FILE_URL,
+  baseURL: API_BASE_URL,
   timeout: 30000, // Увеличиваем таймаут для загрузки файлов
 });
 
@@ -33,56 +30,28 @@ export const fileService = {
   // Загрузка аватара текущего пользователя
   uploadAvatar: async (file) => {
     try {
-      console.log('Начинаем загрузку аватара:', file.name);
       const formData = new FormData();
       formData.append('avatar', file);
       
-      // Пробуем сначала путь с API
-      const response = await fileApiClient.post('/api/Files/avatar', formData);
-      console.log('Ответ от сервера при загрузке аватара:', response.data);
+      const response = await fileApiClient.post('/Files/avatar', formData);
       return handleApiResponse(response.data);
     } catch (error) {
       console.error('Avatar upload error:', error.response?.data);
-      
-      // Пробуем альтернативный путь
-      try {
-        const formData = new FormData();
-        formData.append('avatar', file);
-        const response = await fileApiClient.post('/Files/avatar', formData);
-        console.log('Ответ от сервера при загрузке аватара (альтернативный путь):', response.data);
-        return handleApiResponse(response.data);
-      } catch (altError) {
-        console.error('Avatar upload error (alternative path):', altError.response?.data);
-        throw new Error(error.response?.data?.message || error.response?.data?.error?.message || altError.response?.data?.message || altError.response?.data?.error?.message || 'Ошибка загрузки аватара');
-      }
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка загрузки аватара');
     }
   },
   
   // Загрузка баннера для канала текущего пользователя
   uploadBanner: async (file) => {
     try {
-      console.log('Начинаем загрузку баннера:', file.name);
       const formData = new FormData();
       formData.append('banner', file);
       
-      // Пробуем сначала путь с API
-      const response = await fileApiClient.post('/api/Files/banner', formData);
-      console.log('Ответ от сервера при загрузке баннера:', response.data);
+      const response = await fileApiClient.post('/Files/banner', formData);
       return handleApiResponse(response.data);
     } catch (error) {
       console.error('Banner upload error:', error.response?.data);
-      
-      // Пробуем альтернативный путь
-      try {
-        const formData = new FormData();
-        formData.append('banner', file);
-        const response = await fileApiClient.post('/Files/banner', formData);
-        console.log('Ответ от сервера при загрузке баннера (альтернативный путь):', response.data);
-        return handleApiResponse(response.data);
-      } catch (altError) {
-        console.error('Banner upload error (alternative path):', altError.response?.data);
-        throw new Error(error.response?.data?.message || error.response?.data?.error?.message || altError.response?.data?.message || altError.response?.data?.error?.message || 'Ошибка загрузки баннера');
-      }
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка загрузки баннера');
     }
   },
   
