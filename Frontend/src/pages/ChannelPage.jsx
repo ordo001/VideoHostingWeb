@@ -13,6 +13,7 @@ import Loader from '../components/Loader';
 import ImageUpload from '../components/ImageUpload';
 
 const ChannelPage = () => {
+  const BASE_URL = 'http://localhost:9000';
   const { channelId } = useParams();
   const { user } = useAuth();
   const { showNotification } = useUI();
@@ -25,7 +26,7 @@ const ChannelPage = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribersCount, setSubscribersCount] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedData, setEditedData] = useState({ name: '', description: '', banner_url: null, avatar_url: null });
+  const [editedData, setEditedData] = useState({ name: '', description: '', banner: null, avatar: null });
   
   const isOwnChannel = user && channelId === user.id;
   
@@ -52,8 +53,8 @@ const ChannelPage = () => {
         setEditedData({
           name: data.name || '',
           description: data.description || '',
-          banner_url: data.banner_url || null,
-          avatar_url: data.avatar_url || null
+          banner: data.banner || null,
+          avatar_url: data.avatar || null
         });
         
         // Проверяем подписку (если это не свой канал)
@@ -258,16 +259,16 @@ const ChannelPage = () => {
       <div className="h-48 md:h-64 relative">
         {isEditing && isOwnChannel ? (
           <ImageUpload
-            value={editedData.banner_url}
+            value={editedData.banner}
             onChange={handleBannerChange}
             uploadType="banner"
             aspectRatio="banner"
             className="w-full h-full"
             showPreview={true}
           />
-        ) : channelData.banner_url ? (
+        ) : channelData.banner ? (
           <img 
-            src={channelData.banner_url} 
+            src={`${BASE_URL}/${channelData.banner}`} 
             alt="Banner" 
             className="w-full h-full object-cover"
           />
@@ -284,7 +285,7 @@ const ChannelPage = () => {
             <div className="flex-shrink-0 mb-3 md:mb-0 md:mr-6">
               {isEditing && isOwnChannel ? (
                 <ImageUpload
-                  value={editedData.avatar_url}
+                  value={editedData.avatar}
                   onChange={handleAvatarChange}
                   uploadType="avatar"
                   aspectRatio="square"
@@ -292,9 +293,9 @@ const ChannelPage = () => {
                 />
               ) : (
                 <div className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-black overflow-hidden bg-gray-800 shadow-lg">
-                  {channelData.avatar_url ? (
+                  {channelData.avatar ? (
                     <img 
-                      src={channelData.avatar_url} 
+                      src={`${BASE_URL}/${channelData.avatar}`} 
                       alt={channelData.name}
                       className="w-full h-full object-cover"
                     />

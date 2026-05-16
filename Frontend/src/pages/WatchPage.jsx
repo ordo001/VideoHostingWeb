@@ -4,13 +4,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { useAuthModal } from '../hooks/useAuthModal';
 import videoService from '../services/videoService';
-import channelService from '../services/channelService';
 import subscriptionService from '../services/subscriptionService';
 import VideoPlayer from '../components/VideoPlayer';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
-import { normalizeId } from '../utils/adapterUtils';
-
+const BASE_URL = 'http://localhost:9000';
 // Функция форматирования даты загрузки видео
 const formatUploadDate = (dateString) => {
   if (!dateString) return 'Неизвестная дата';
@@ -548,7 +546,7 @@ const WatchPage = () => {
                   >
                     {videoData.author.avatar ? (
                       <img 
-                        src={videoData.author.avatar} 
+                        src={`${BASE_URL}/${videoData.author.avatar}`}  
                         alt={videoData.author.name} 
                         className="w-full h-full rounded-full object-cover"
                       />

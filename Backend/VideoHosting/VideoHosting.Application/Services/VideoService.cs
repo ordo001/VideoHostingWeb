@@ -14,6 +14,7 @@ public class VideoService : IVideoService
     private readonly IAdminActionLogRepository _adminActionLogRepository;
     private readonly IMinioService _minioService;
     private readonly IRabbitMqService _rabbitMqService;
+    private ISubscriptionRepository _subscriptionRepository;
     private static readonly HashSet<string> ValidReactionTypes = new() { "Like", "Dislike" };
     private static readonly List<string> SupportedResolutions = new() { "360p", "480p", "720p", "1080p" };
 
@@ -23,7 +24,7 @@ public class VideoService : IVideoService
         IUserRepository userRepository,
         IAdminActionLogRepository adminActionLogRepository,
         IMinioService minioService,
-        IRabbitMqService rabbitMqService)
+        IRabbitMqService rabbitMqService, ISubscriptionRepository subscriptionRepository)
     {
         _videoRepository = videoRepository;
         _videoReactionRepository = videoReactionRepository;
@@ -31,6 +32,7 @@ public class VideoService : IVideoService
         _adminActionLogRepository = adminActionLogRepository;
         _minioService = minioService;
         _rabbitMqService = rabbitMqService;
+        _subscriptionRepository = subscriptionRepository;
     }
 
     public async Task<VideoDto?> GetVideoByIdAsync(Guid id)
@@ -40,7 +42,9 @@ public class VideoService : IVideoService
             return null;
 
         var user = await _userRepository.GetByIdAsync(video.UserId);
-        return MapToDto(video, user);
+        var dto = MapToDto(video, user);
+        dto.User.SubscribersCount = await _subscriptionRepository.GetSubscriberCountAsync(user!.Id);
+        return dto;
     }
 
     public async Task<IEnumerable<VideoDto>> GetAllVideosAsync()
