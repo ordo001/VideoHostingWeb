@@ -53,71 +53,13 @@ const DashboardPage = () => {
             </div>
             <div>
               <p className="text-gray-400 text-sm">Пользователи</p>
-              <p className="text-2xl font-bold text-white">
-                {stats?.users?.total?.toLocaleString() || 0}
+<p className="text-2xl font-bold text-white">
+                {stats?.totalLikes?.toLocaleString() || 0}
               </p>
             </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-gray-400">
-              +{stats?.users?.new_today || 0} сегодня
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <div className="flex items-center">
-            <div className="p-3 rounded-lg bg-green-900 bg-opacity-20 mr-4">
-              <span className="text-2xl">🎬</span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Видео</p>
-              <p className="text-2xl font-bold text-white">
-                {stats?.videos?.total?.toLocaleString() || 0}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-gray-400">
-              +{stats?.videos?.new_today || 0} сегодня
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <div className="flex items-center">
-            <div className="p-3 rounded-lg bg-purple-900 bg-opacity-20 mr-4">
-              <span className="text-2xl">👁️</span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Просмотры</p>
-              <p className="text-2xl font-bold text-white">
-                {stats?.views?.total?.toLocaleString() || 0}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-gray-400">
-              +{stats?.views?.today?.toLocaleString() || 0} сегодня
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <div className="flex items-center">
-            <div className="p-3 rounded-lg bg-yellow-900 bg-opacity-20 mr-4">
-              <span className="text-2xl">❤️</span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Лайки</p>
-              <p className="text-2xl font-bold text-white">
-                {stats?.likes?.total?.toLocaleString() || 0}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-gray-400">
-              +{stats?.likes?.today?.toLocaleString() || 0} сегодня
+            <div className="mt-4">
+              <p className="text-sm text-gray-400">
+                +{stats?.newLikes?.toLocaleString() || 0} за период
             </p>
           </div>
         </div>

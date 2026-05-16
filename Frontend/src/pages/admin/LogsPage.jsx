@@ -13,7 +13,10 @@ const LogsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [filter, setFilter] = useState('all'); // 'all', 'user', 'video', 'admin'
+  const [filter, setFilter] = useState('All'); // 'All', 'User', 'Video', 'Admin'
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [adminId, setAdminId] = useState('');
   
   // Загружаем логи администраторов
   useEffect(() => {
@@ -23,14 +26,17 @@ const LogsPage = () => {
       try {
         const data = await adminService.getAdminLogs({
           page: currentPage,
-          limit: 20,
-          search: searchTerm,
-          filter: filter !== 'all' ? filter : undefined
+          pageSize: 20,
+          searchTerm: searchTerm,
+          actionType: filter !== 'All' ? filter : undefined,
+          dateFrom: dateFrom || null,
+          dateTo: dateTo || null,
+          adminId: adminId || null
         });
         
-        setLogs(data.logs || []);
-        setTotalPages(data.total_pages || 1);
-        setTotalCount(data.total || 0);
+        setLogs(data.items || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalCount(data.totalItems || 0);
       } catch (err) {
         showNotification({
           type: 'error',
@@ -43,7 +49,7 @@ const LogsPage = () => {
     };
     
     fetchLogs();
-  }, [currentPage, searchTerm, filter, showNotification]);
+  }, [currentPage, searchTerm, filter, dateFrom, dateTo, adminId, showNotification]);
   
   // Обработчик поиска
   const handleSearch = (e) => {
@@ -70,7 +76,7 @@ const LogsPage = () => {
             </p>
           </div>
           
-          <div className="mt-4 md:mt-0 flex space-x-3">
+          <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
             <div className="relative">
               <input
                 type="text"
@@ -94,11 +100,44 @@ const LogsPage = () => {
               }}
               className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
             >
-              <option value="all">Все действия</option>
-              <option value="user">Пользователи</option>
-              <option value="video">Видео</option>
-              <option value="admin">Администрирование</option>
+              <option value="All">Все действия</option>
+              <option value="User">Пользователи</option>
+              <option value="Video">Видео</option>
+              <option value="Admin">Администрирование</option>
             </select>
+            
+            <input
+              type="text"
+              value={adminId}
+              onChange={(e) => {
+                setAdminId(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500 w-40"
+              placeholder="ID админа"
+            />
+            
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
+              placeholder="Дата от"
+            />
+            
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
+              placeholder="Дата до"
+            />
           </div>
         </div>
       </div>
@@ -133,25 +172,17 @@ const LogsPage = () => {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center">
-                          {log.admin?.avatar ? (
-                            <img 
-                              src={log.admin.avatar} 
-                              alt={log.admin.name} 
-                              className="h-10 w-10 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="font-medium text-gray-300">
-                              {log.admin?.name?.charAt(0) || '?'}
-                            </span>
-                          )}
+                          <span className="font-medium text-gray-300">
+                            {log.adminName?.charAt(0) || '?'}
+                          </span>
                         </div>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-white">
-                          {log.admin?.name || 'Неизвестный админ'}
+                          {log.adminName || 'Неизвестный админ'}
                         </div>
                         <div className="text-sm text-gray-400">
-                          @{log.admin?.email || 'Неизвестен'}
+                          ID: {log.adminId?.toString().substring(0, 8) || 'Неизвестен'}
                         </div>
                       </div>
                     </div>
@@ -159,6 +190,9 @@ const LogsPage = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-white">
                       {log.action}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {log.actionType}
                     </div>
                     {log.details && (
                       <div className="text-sm text-gray-400">
@@ -168,14 +202,14 @@ const LogsPage = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-400">
-                      {log.object_type}: {log.object_id}
+                      {log.targetType}: {log.targetId ? log.targetId.toString().substring(0, 8) + '...' : 'Нет'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {log.ip_address}
+                    {log.ipAddress}
                   </td>
                 </tr>
               ))}

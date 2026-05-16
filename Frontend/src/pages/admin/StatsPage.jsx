@@ -9,7 +9,7 @@ const StatsPage = () => {
   
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('7days'); // '24h', '7days', '30days', 'all'
+  const [timeRange, setTimeRange] = useState('7d'); // '24h', '7d', '30d', 'all'
   
   // Загружаем статистику платформы
   useEffect(() => {
@@ -17,7 +17,7 @@ const StatsPage = () => {
       setLoading(true);
       
       try {
-        const data = await adminService.getPlatformStats();
+        const data = await adminService.getPlatformStats(timeRange);
         setStats(data);
       } catch (err) {
         showNotification({
@@ -31,7 +31,7 @@ const StatsPage = () => {
     };
     
     fetchStats();
-  }, [showNotification]);
+  }, [showNotification, timeRange]);
   
   if (loading) {
     return (
@@ -56,8 +56,8 @@ const StatsPage = () => {
             <div className="flex space-x-2">
               {[
                 { value: '24h', label: '24 часа' },
-                { value: '7days', label: '7 дней' },
-                { value: '30days', label: '30 дней' },
+                { value: '7d', label: '7 дней' },
+                { value: '30d', label: '30 дней' },
                 { value: 'all', label: 'Все время' }
               ].map((range) => (
                 <Button
@@ -83,71 +83,13 @@ const StatsPage = () => {
             </div>
             <div>
               <p className="text-gray-400 text-sm">Всего пользователей</p>
-              <p className="text-2xl font-bold text-white">
-                {stats?.users?.total?.toLocaleString() || 0}
+<p className="text-2xl font-bold text-white">
+                {stats?.totalLikes?.toLocaleString() || 0}
               </p>
             </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-green-400">
-              +{stats?.users?.growth?.toLocaleString() || 0}% рост
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <div className="flex items-center">
-            <div className="p-3 rounded-lg bg-green-900 bg-opacity-20 mr-4">
-              <span className="text-2xl">🎬</span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Всего видео</p>
-              <p className="text-2xl font-bold text-white">
-                {stats?.videos?.total?.toLocaleString() || 0}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-green-400">
-              +{stats?.videos?.growth?.toLocaleString() || 0}% рост
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <div className="flex items-center">
-            <div className="p-3 rounded-lg bg-purple-900 bg-opacity-20 mr-4">
-              <span className="text-2xl">👁️</span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Просмотры</p>
-              <p className="text-2xl font-bold text-white">
-                {stats?.views?.total?.toLocaleString() || 0}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-green-400">
-              +{stats?.views?.growth?.toLocaleString() || 0}% рост
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <div className="flex items-center">
-            <div className="p-3 rounded-lg bg-yellow-900 bg-opacity-20 mr-4">
-              <span className="text-2xl">❤️</span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Взаимодействия</p>
-              <p className="text-2xl font-bold text-white">
-                {(stats?.likes?.total + stats?.comments?.total)?.toLocaleString() || 0}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-green-400">
-              +{stats?.interactions?.growth?.toLocaleString() || 0}% рост
+            <div className="mt-4">
+              <p className="text-sm text-green-400">
+                Новые: +{stats?.newLikes?.toLocaleString() || 0}
             </p>
           </div>
         </div>
@@ -167,20 +109,15 @@ const StatsPage = () => {
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
           <h2 className="text-xl font-bold text-white mb-4">Популярные видео</h2>
           <div className="space-y-4">
-            {[
-              { title: 'Введение в цифровое кино', views: 15000, likes: 1250 },
-              { title: 'Технологии HDR в современном кино', views: 12800, likes: 980 },
-              { title: 'Работа с цветокоррекцией', views: 11200, likes: 870 },
-              { title: 'Съемка в условиях низкой освещенности', views: 9800, likes: 760 },
-              { title: 'Монтаж документальных фильмов', views: 8900, likes: 650 }
-            ].map((video, index) => (
+            {stats?.popularVideos?.map((video, index) => (
               <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-800 rounded-lg">
                 <div>
                   <p className="font-medium text-white">{video.title}</p>
                   <p className="text-sm text-gray-400">{video.views.toLocaleString()} просмотров</p>
+                  <p className="text-xs text-gray-500">{video.authorName}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-green-400">+{video.likes} ❤️</p>
+                  <p className="text-sm text-green-400">+{video.likes.toLocaleString()} ❤️</p>
                 </div>
               </div>
             ))}
