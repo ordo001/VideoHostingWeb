@@ -13,14 +13,13 @@ public interface IVideoService
     Task UpdateVideoAsync(VideoDto video);
     Task DeleteVideoAsync(Guid id);
     
-    // Admin functions
     Task DeleteVideoByAdminAsync(Guid id, Guid adminUserId, string reason);
     
-    // Video reactions
     Task<VideoReactionDto?> GetUserReactionAsync(Guid userId, Guid videoId);
     Task AddOrUpdateReactionAsync(Guid userId, Guid videoId, string reactionType);
     Task RemoveReactionAsync(Guid userId, Guid videoId);
     
-    // Processing status
     Task<VideoProcessingStatusDto> GetVideoProcessingStatusAsync(Guid videoId);
+    
+    Task TrackVideoViewAsync(Guid userId, Guid videoId);
 }

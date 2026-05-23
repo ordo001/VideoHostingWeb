@@ -3,6 +3,7 @@ using VideoHosting.Application.DTOs;
 using VideoHosting.Application.Interfaces;
 using VideoHosting.Domain.Entities;
 using VideoHosting.Domain.Enums;
+using VideoHosting.Domain.Interfaces;
 using VideoHosting.Infrastructure.Data;
 
 namespace VideoHosting.Infrastructure.Services;
@@ -12,15 +13,18 @@ public class AdminService : IAdminService
     private readonly VideoHostingDbContext _context;
     private readonly IUserService _userService;
     private readonly IVideoService _videoService;
+    private readonly IViewHistoryRepository _viewHistoryRepository;
 
     public AdminService(
         VideoHostingDbContext context,
         IUserService userService,
-        IVideoService videoService)
+        IVideoService videoService,
+        IViewHistoryRepository viewHistoryRepository)
     {
         _context = context;
         _userService = userService;
         _videoService = videoService;
+        _viewHistoryRepository = viewHistoryRepository;
     }
 
     public async Task<PaginatedResponseDto<AdminUserDto>> GetUsersAsync(AdminUserListRequestDto request)
@@ -309,9 +313,13 @@ public class AdminService : IAdminService
     public async Task<PlatformStatsDto> GetPlatformStatsAsync(string period = "30d")
     {
         var now = DateTime.UtcNow;
+        
+        var todayStart = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+        
         var dateFrom = period switch
         {
             "24h" => now.AddDays(-1),
+            "today" => todayStart,
             "7d" => now.AddDays(-7),
             "30d" => now.AddDays(-30),
             "all" => DateTime.MinValue,
@@ -325,25 +333,71 @@ public class AdminService : IAdminService
         var newVideos = await _context.Videos.CountAsync(v => v.CreatedAt >= dateFrom);
         var totalViews = await _context.Videos.SumAsync(v => v.Views);
         
-        // Для новых просмотров нужно будет реализовать отдельную таблицу просмотров
-        var newViews = 0; // Временно
+        var todayUsers = await _context.Users.CountAsync(u => u.CreatedAt >= todayStart);
+        var todayVideos = await _context.Videos.CountAsync(v => v.CreatedAt >= todayStart);
         
-        var totalLikes = await _context.Videos.SumAsync(v => v.Likes);
+        var todayViews = await _viewHistoryRepository.GetCountByDateRangeAsync(todayStart, DateTime.UtcNow);
         
-        // Для новых лайков нужно будет реализовать отдельную таблицу
-        var newLikes = 0; // Временно
+        var todayLikes = await _context.VideoReactions
+            .CountAsync(vr => vr.ReactionType == ReactionType.Like && vr.CreatedAt >= todayStart);
+        
+        var newViews = await _viewHistoryRepository.GetCountByDateRangeAsync(dateFrom, DateTime.UtcNow);
+        
+        var totalLikes = await _context.VideoReactions
+            .CountAsync(vr => vr.ReactionType == ReactionType.Like);
+        
+        var newLikes = await _context.VideoReactions
+            .CountAsync(vr => vr.ReactionType == ReactionType.Like && vr.CreatedAt >= dateFrom);
+        
+        if (period == "24h" || period == "today" || string.IsNullOrEmpty(period))
+        {
+            newUsers = todayUsers;
+            newVideos = todayVideos;
+            newViews = todayViews;
+            newLikes = todayLikes;
+        }
 
-        // Рост пользователей
-        var userGrowth = await _context.Users
-            .Where(u => u.CreatedAt >= dateFrom)
+        // Fixed User Growth Chart - Ensure we have data for each day in the period
+        // For "all time", limit to last 365 days for better performance
+        DateTime userGrowthFilterDate = period == "all" ? now.AddDays(-365) : dateFrom;
+        
+        var userGrowthData = await _context.Users
+            .Where(u => u.CreatedAt >= userGrowthFilterDate)
             .GroupBy(u => u.CreatedAt.Date)
-            .Select(g => new UserGrowthDto
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Date, x => x.Count);
+            
+        DateTime userGrowthStartDate;
+        if (period == "all")
+        {
+            var oldestUserDate = await (
+                from u in _context.Users
+                where u.CreatedAt > now.AddDays(-365)
+                orderby u.CreatedAt ascending
+                select u.CreatedAt
+            ).FirstOrDefaultAsync();
+                
+            userGrowthStartDate = oldestUserDate == default ? now.AddDays(-30) : oldestUserDate;
+            userGrowthStartDate = new DateTime(userGrowthStartDate.Year, userGrowthStartDate.Month, userGrowthStartDate.Day, 0, 0, 0, DateTimeKind.Utc);
+        }
+        else
+        {
+            userGrowthStartDate = dateFrom;
+        }
+            
+        var userGrowth = new List<UserGrowthDto>();
+        var userGrowthDays = (int)(now - userGrowthStartDate).TotalDays;
+        
+        for (int i = 0; i <= userGrowthDays; i++)
+        {
+            var day = userGrowthStartDate.AddDays(i).Date;
+                
+            userGrowth.Add(new UserGrowthDto
             {
-                Date = g.Key,
-                Count = g.Count()
-            })
-            .OrderBy(g => g.Date)
-            .ToListAsync();
+                Date = day,
+                Count = userGrowthData.ContainsKey(day) ? userGrowthData[day] : 0
+            });
+        }
 
         // Популярные видео
         var popularVideos = await _context.Videos
@@ -360,23 +414,94 @@ public class AdminService : IAdminService
             })
             .ToListAsync();
 
-        // График активности
+        // Последние загруженные видео
+        var recentVideos = await _context.Videos
+            .Include(v => v.User)
+            .OrderByDescending(v => v.CreatedAt)
+            .Take(5)
+            .Select(v => new PopularVideoDto
+            {
+                Id = v.Id,
+                Title = v.Title,
+                AuthorName = v.User.Name,
+                Views = v.Views,
+                Likes = v.Likes
+            })
+            .ToListAsync();
+
+        var viewsByDate = new Dictionary<DateTime, int>();
+        
+        DateTime viewFilterDate = period == "all" ? now.AddDays(-365) : dateFrom;
+        
+        var viewHistoryData = await _viewHistoryRepository.GetByDateRangeAsync(viewFilterDate, now);
+        viewsByDate = viewHistoryData
+            .GroupBy(vh => vh.ViewedAt.Date)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        DateTime videoFilterDate = period == "all" ? now.AddDays(-365) : dateFrom;
+            
+        var videoUploadsData = await _context.Videos
+            .Where(v => v.CreatedAt >= videoFilterDate)
+            .GroupBy(v => v.CreatedAt.Date)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Date, x => x.Count);
+            
+        DateTime userRegFilterDate = period == "all" ? now.AddDays(-365) : dateFrom;
+        
+        var userRegistrationsData = await _context.Users
+            .Where(u => u.CreatedAt >= userRegFilterDate)
+            .GroupBy(u => u.CreatedAt.Date)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Date, x => x.Count);
+
         var activityGraph = new List<ActivityGraphDto>();
-        var days = (int)(now - dateFrom).TotalDays;
+        
+        DateTime activityFilterDate = period == "all" ? now.AddDays(-365) : dateFrom;
+        
+        DateTime allTimeStartDate;
+        if (period == "all")
+        {
+            var oldestActivityDate = await (
+                from vh in _context.ViewHistories
+                where vh.ViewedAt > now.AddDays(-365)
+                orderby vh.ViewedAt ascending
+                select vh.ViewedAt
+            ).FirstOrDefaultAsync();
+                
+            var oldestUserDate = await (
+                from u in _context.Users
+                where u.CreatedAt > now.AddDays(-365)
+                orderby u.CreatedAt ascending
+                select u.CreatedAt
+            ).FirstOrDefaultAsync();
+                
+            var oldestVideoDate = await (
+                from v in _context.Videos
+                where v.CreatedAt > now.AddDays(-365)
+                orderby v.CreatedAt ascending
+                select v.CreatedAt
+            ).FirstOrDefaultAsync();
+                
+            allTimeStartDate = new List<DateTime> { oldestActivityDate, oldestUserDate, oldestVideoDate }
+                .Where(d => d > DateTime.MinValue)
+                .DefaultIfEmpty(now.AddMonths(-1))
+                .Min();
+            allTimeStartDate = new DateTime(allTimeStartDate.Year, allTimeStartDate.Month, allTimeStartDate.Day, 0, 0, 0, DateTimeKind.Utc);
+        }
+        else
+        {
+            allTimeStartDate = dateFrom;
+        }
+            
+        var days = (int)(now - allTimeStartDate).TotalDays;
+        
         for (int i = 0; i <= days; i++)
         {
-            var day = dateFrom.AddDays(i);
-            var nextDay = day.AddDays(1);
+            var day = allTimeStartDate.AddDays(i).Date;
             
-            var views = await _context.Videos
-                .Where(v => v.CreatedAt >= day && v.CreatedAt < nextDay)
-                .SumAsync(v => v.Views);
-                
-            var uploads = await _context.Videos
-                .CountAsync(v => v.CreatedAt >= day && v.CreatedAt < nextDay);
-                
-            var registrations = await _context.Users
-                .CountAsync(u => u.CreatedAt >= day && u.CreatedAt < nextDay);
+            var views = viewsByDate.ContainsKey(day) ? viewsByDate[day] : 0;
+            var uploads = videoUploadsData.ContainsKey(day) ? videoUploadsData[day] : 0;
+            var registrations = userRegistrationsData.ContainsKey(day) ? userRegistrationsData[day] : 0;
 
             activityGraph.Add(new ActivityGraphDto
             {
@@ -400,8 +525,13 @@ public class AdminService : IAdminService
             NewViews = newViews,
             TotalLikes = totalLikes,
             NewLikes = newLikes,
+            TodayUsers = todayUsers,
+            TodayVideos = todayVideos,
+            TodayViews = todayViews,
+            TodayLikes = todayLikes,
             UserGrowth = userGrowth.ToArray(),
             PopularVideos = popularVideos.ToArray(),
+            RecentVideos = recentVideos.ToArray(),
             ActivityGraph = activityGraph.ToArray(),
             UserGeography = userGeography.ToArray()
         };

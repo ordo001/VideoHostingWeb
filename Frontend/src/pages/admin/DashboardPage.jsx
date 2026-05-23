@@ -14,7 +14,7 @@ const DashboardPage = () => {
   const [chartsData, setChartsData] = useState({
     userGrowth: [],
     viewsGrowth: [], // Добавляем данные для роста просмотров
-    platformActivity: [],
+    videoUploadsGrowth: [], // Данные для роста загрузки видео
     contentPopularity: []
   });
   
@@ -99,15 +99,15 @@ const DashboardPage = () => {
       }
     }
     
-    // Данные для графика активности платформы за последние 7 дней
-    const platformActivityData = [];
+    // Данные для графика роста загрузки видео за последние 7 дней
+    const videoUploadsGrowthData = [];
     
     // Используем реальные данные из API, если они есть
-    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      console.log('Используем реальные данные activityGraph:', statsData.activityGraph);
+    if (statsData?.videoUploads && statsData.videoUploads.length > 0) {
+      console.log('Используем реальные данные videoUploads:', statsData.videoUploads);
       
       // Берем последние 7 дней из данных
-      const last7Days = statsData.activityGraph.slice(-7);
+      const last7Days = statsData.videoUploads.slice(-7);
       
       // Заполняем недостающие дни, если данных меньше 7
       for (let i = 6; i >= 0; i--) {
@@ -115,23 +115,21 @@ const DashboardPage = () => {
         date.setDate(today.getDate() - i);
         const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
         
-        // Ищем данные за этот день в activityGraph
+        // Ищем данные за этот день в videoUploads
         const dayData = last7Days.find(item => {
           const itemDate = new Date(item.date);
           return itemDate.toDateString() === date.toDateString();
         });
         
-        const views = dayData ? dayData.views : Math.floor(Math.random() * 1000) + 500;
-        const uploads = dayData ? dayData.uploads : Math.floor(Math.random() * 10) + 1;
+        const uploads = dayData ? dayData.count : Math.floor(Math.random() * 10) + 1;
         
-        platformActivityData.push({
+        videoUploadsGrowthData.push({
           label: dayName,
-          просмотры: views,
-          загрузки: uploads
+          value: uploads
         });
       }
     } else {
-      console.log('Нет данных activityGraph, генерируем демо-данные');
+      console.log('Нет данных videoUploads, генерируем демо-данные');
       
       // Если нет данных от API, генерируем демо-данные
       for (let i = 6; i >= 0; i--) {
@@ -139,13 +137,11 @@ const DashboardPage = () => {
         date.setDate(today.getDate() - i);
         const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
         
-        const views = Math.floor(Math.random() * 1000) + 500;
         const uploads = Math.floor(Math.random() * 10) + 1;
         
-        platformActivityData.push({
+        videoUploadsGrowthData.push({
           label: dayName,
-          просмотры: views,
-          загрузки: uploads
+          value: uploads
         });
       }
     }
@@ -201,9 +197,9 @@ const DashboardPage = () => {
     // Данные для графика роста просмотров
     const viewsGrowthData = [];
     
-    // Используем данные из activityGraph или генерируем на основе просмотров
-    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      const last7Days = statsData.activityGraph.slice(-7);
+    // Используем данные из viewHistory или генерируем на основе просмотров
+    if (statsData?.viewHistory && statsData.viewHistory.length > 0) {
+      const last7Days = statsData.viewHistory.slice(-7);
       
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
@@ -215,7 +211,7 @@ const DashboardPage = () => {
           return itemDate.toDateString() === date.toDateString();
         });
         
-        const value = dayData ? dayData.views : Math.floor(Math.random() * 1000) + 500;
+        const value = dayData ? dayData.count : Math.floor(Math.random() * 1000) + 500;
         
         viewsGrowthData.push({
           label: dayName,
@@ -223,6 +219,8 @@ const DashboardPage = () => {
         });
       }
     } else {
+      console.log('Нет данных viewHistory, используем демо-данные');
+      
       // Генерируем демо-данные для просмотров
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
@@ -240,8 +238,8 @@ const DashboardPage = () => {
     
     const chartsData = {
       userGrowth: userGrowthData,
-      viewsGrowth: viewsGrowthData, // Добавляем данные для роста просмотров
-      platformActivity: platformActivityData,
+      viewsGrowth: viewsGrowthData, // Данные для роста просмотров
+      videoUploadsGrowth: videoUploadsGrowthData, // Данные для роста загрузки видео
       contentPopularity: contentPopularityData
     };
     
@@ -283,7 +281,7 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newUsers?.toLocaleString() || 0} за сегодня
+              +{stats?.todayUsers?.toLocaleString() || 0} за сегодня
             </p>
           </div>
         </div>
@@ -305,7 +303,7 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newVideos?.toLocaleString() || 0} за сегодня
+              +{stats?.todayVideos?.toLocaleString() || 0} за сегодня
             </p>
           </div>
         </div>
@@ -327,7 +325,7 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newViews?.toLocaleString() || 0} за сегодня
+              +{stats?.todayViews?.toLocaleString() || 0} за сегодня
             </p>
           </div>
         </div>
@@ -349,7 +347,7 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newLikes?.toLocaleString() || 0} за сегодня
+              +{stats?.todayLikes?.toLocaleString() || 0} за сегодня
             </p>
           </div>
         </div>
@@ -357,33 +355,36 @@ const DashboardPage = () => {
       
       {/* Графики и активность */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Недавняя активность */}
+        {/* Недавние видео */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-xl font-bold text-white mb-4">Недавняя активность</h2>
+          <h2 className="text-xl font-bold text-white mb-4">Недавние видео</h2>
           <div className="space-y-4">
-            {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-              stats.recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-start">
-                  <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
-                    {activity.adminAvatarUrl ? (
-                      <img 
-                        src={activity.adminAvatarUrl} 
-                        alt={activity.adminName}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-gray-400">👤</span>
-                    )}
+            {stats?.recentVideos && stats.recentVideos.length > 0 ? (
+              stats.recentVideos.map((video, index) => (
+                <div key={video.id} className="flex items-start cursor-pointer hover:bg-gray-800 p-2 rounded-lg transition-colors" onClick={() => navigate(`/video/${video.id}`)}>
+                  <div className="w-16 h-10 rounded-lg bg-gray-800 mr-3 flex-shrink-0 overflow-hidden">
+                    <img 
+                      src={video.thumbnailUrl || '/assets/placeholder-video.jpg'} 
+                      alt={video.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = '/assets/placeholder-video.jpg';
+                      }}
+                    />
                   </div>
-                  <div>
-                    <p className="text-white font-medium">{activity.action}</p>
-                    <p className="text-gray-400 text-sm">{activity.timestamp}</p>
+                  <div className="flex-1">
+                    <p className="text-white font-medium line-clamp-2">{video.title}</p>
+                    <p className="text-gray-400 text-sm">{video.authorName}</p>
+                    <div className="flex items-center mt-1 text-xs text-gray-400">
+                      <span className="mr-3">{video.views.toLocaleString()} просмотров</span>
+                      <span>{video.likes} лайков</span>
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
               <div className="text-gray-400 text-center py-4">
-                Нет недавней активности
+                Нет недавних видео
               </div>
             )}
           </div>
@@ -480,11 +481,11 @@ const DashboardPage = () => {
         
         {/* График активности платформы */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* График активности платформы */}
-          <BarChart
-            data={chartsData.platformActivity}
-            title="Активность платформы"
-            colors={['#10B981', '#F59E0B']}
+          {/* График роста загрузки видео */}
+          <LineChart
+            data={chartsData.videoUploadsGrowth}
+            title="Рост загрузки видео"
+            color="#F59E0B"
             height={300}
           />
           
@@ -497,35 +498,38 @@ const DashboardPage = () => {
         </div>
       </div>
       
-      {/* Недавняя активность и быстрые действия */}
+      {/* Недавние видео и быстрые действия */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Недавняя активность */}
+        {/* Недавние видео */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-xl font-bold text-white mb-4">Недавняя активность</h2>
+          <h2 className="text-xl font-bold text-white mb-4">Недавние видео</h2>
           <div className="space-y-4">
-            {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-              stats.recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-start">
-                  <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
-                    {activity.adminAvatarUrl ? (
-                      <img 
-                        src={activity.adminAvatarUrl} 
-                        alt={activity.adminName}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-gray-400">👤</span>
-                    )}
+            {stats?.recentVideos && stats.recentVideos.length > 0 ? (
+              stats.recentVideos.map((video, index) => (
+                <div key={video.id} className="flex items-start cursor-pointer hover:bg-gray-800 p-2 rounded-lg transition-colors" onClick={() => navigate(`/video/${video.id}`)}>
+                  <div className="w-16 h-10 rounded-lg bg-gray-800 mr-3 flex-shrink-0 overflow-hidden">
+                    <img 
+                      src={video.thumbnailUrl || '/assets/placeholder-video.jpg'} 
+                      alt={video.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = '/assets/placeholder-video.jpg';
+                      }}
+                    />
                   </div>
-                  <div>
-                    <p className="text-white font-medium">{activity.action}</p>
-                    <p className="text-gray-400 text-sm">{activity.timestamp}</p>
+                  <div className="flex-1">
+                    <p className="text-white font-medium line-clamp-2">{video.title}</p>
+                    <p className="text-gray-400 text-sm">{video.authorName}</p>
+                    <div className="flex items-center mt-1 text-xs text-gray-400">
+                      <span className="mr-3">{video.views.toLocaleString()} просмотров</span>
+                      <span>{video.likes} лайков</span>
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
               <div className="text-gray-400 text-center py-4">
-                Нет недавней активности
+                Нет недавних видео
               </div>
             )}
           </div>

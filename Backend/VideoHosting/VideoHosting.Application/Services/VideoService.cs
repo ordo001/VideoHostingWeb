@@ -15,6 +15,7 @@ public class VideoService : IVideoService
     private readonly IMinioService _minioService;
     private readonly IRabbitMqService _rabbitMqService;
     private ISubscriptionRepository _subscriptionRepository;
+    private readonly IViewHistoryRepository _viewHistoryRepository;
     private static readonly HashSet<string> ValidReactionTypes = new() { "Like", "Dislike" };
     private static readonly List<string> SupportedResolutions = new() { "360p", "480p", "720p", "1080p" };
 
@@ -24,7 +25,9 @@ public class VideoService : IVideoService
         IUserRepository userRepository,
         IAdminActionLogRepository adminActionLogRepository,
         IMinioService minioService,
-        IRabbitMqService rabbitMqService, ISubscriptionRepository subscriptionRepository)
+        IRabbitMqService rabbitMqService, 
+        ISubscriptionRepository subscriptionRepository,
+        IViewHistoryRepository viewHistoryRepository)
     {
         _videoRepository = videoRepository;
         _videoReactionRepository = videoReactionRepository;
@@ -33,6 +36,7 @@ public class VideoService : IVideoService
         _minioService = minioService;
         _rabbitMqService = rabbitMqService;
         _subscriptionRepository = subscriptionRepository;
+        _viewHistoryRepository = viewHistoryRepository;
     }
 
     public async Task<VideoDto?> GetVideoByIdAsync(Guid id)
@@ -365,5 +369,24 @@ public class VideoService : IVideoService
         }
 
         return videoDtos;
+    }
+
+    public async Task TrackVideoViewAsync(Guid userId, Guid videoId)
+    {
+        var video = await _videoRepository.GetByIdAsync(videoId);
+        if (video == null)
+            throw new InvalidOperationException("Video not found");
+
+        var viewHistory = new ViewHistory
+        {
+            UserId = userId,
+            VideoId = videoId,
+            ViewedAt = DateTime.UtcNow
+        };
+
+        await _viewHistoryRepository.CreateAsync(viewHistory);
+        
+        video.Views++;
+        await _videoRepository.UpdateAsync(video);
     }
 }

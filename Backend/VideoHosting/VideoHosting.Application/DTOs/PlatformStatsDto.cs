@@ -10,8 +10,13 @@ public class PlatformStatsDto
     public int NewViews { get; set; }
     public int TotalLikes { get; set; }
     public int NewLikes { get; set; }
+    public int TodayUsers { get; set; }
+    public int TodayVideos { get; set; }
+    public int TodayViews { get; set; }
+    public int TodayLikes { get; set; }
     public UserGrowthDto[] UserGrowth { get; set; } = Array.Empty<UserGrowthDto>();
     public PopularVideoDto[] PopularVideos { get; set; } = Array.Empty<PopularVideoDto>();
+    public PopularVideoDto[] RecentVideos { get; set; } = Array.Empty<PopularVideoDto>();
     public ActivityGraphDto[] ActivityGraph { get; set; } = Array.Empty<ActivityGraphDto>();
     public UserGeographyDto[] UserGeography { get; set; } = Array.Empty<UserGeographyDto>();
 }
