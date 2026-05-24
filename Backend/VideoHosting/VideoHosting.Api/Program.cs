@@ -54,12 +54,11 @@ builder.Services.AddSingleton<IConnection>(sp =>
 
 // Add application services
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-        builder.Services.AddScoped<IVideoRepository, VideoRepository>();
-        builder.Services.AddScoped<IVideoReactionRepository, VideoReactionRepository>();
-        builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
-        builder.Services.AddScoped<IAdminActionLogRepository, AdminActionLogRepository>();
-        builder.Services.AddScoped<ICommentRepository, CommentRepository>();
-        builder.Services.AddScoped<IViewHistoryRepository, ViewHistoryRepository>();
+builder.Services.AddScoped<IVideoRepository, VideoRepository>();
+builder.Services.AddScoped<IVideoReactionRepository, VideoReactionRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<IAdminActionLogRepository, AdminActionLogRepository>();
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IAuthService, AuthService>();

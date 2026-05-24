@@ -308,32 +308,6 @@ namespace VideoHosting.Infrastructure.Migrations
                     b.ToTable("VideoReactions");
                 });
 
-            modelBuilder.Entity("VideoHosting.Domain.Entities.ViewHistory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("VideoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("ViewedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("VideoId");
-
-                    b.ToTable("ViewHistories");
-                });
-
             modelBuilder.Entity("VideoHosting.Domain.Entities.AdminActionLog", b =>
                 {
                     b.HasOne("VideoHosting.Domain.Entities.User", "AdminUser")
@@ -411,25 +385,6 @@ namespace VideoHosting.Infrastructure.Migrations
 
                     b.HasOne("VideoHosting.Domain.Entities.Video", "Video")
                         .WithMany("VideoReactions")
-                        .HasForeignKey("VideoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-
-                    b.Navigation("Video");
-                });
-
-            modelBuilder.Entity("VideoHosting.Domain.Entities.ViewHistory", b =>
-                {
-                    b.HasOne("VideoHosting.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("VideoHosting.Domain.Entities.Video", "Video")
-                        .WithMany()
                         .HasForeignKey("VideoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

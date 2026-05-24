@@ -454,17 +454,5 @@ public class AdminController : ControllerBase
         return Request.Headers["User-Agent"].ToString();
     }
 
-    private async Task TrackVideoView(Guid videoId)
-    {
-        try
-        {
-            var userId = GetAdminId();
-            await _videoService.TrackVideoViewAsync(userId, videoId);
-        }
-        catch
-        {
-        }
-    }
-
     #endregion
 }

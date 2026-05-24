@@ -15,7 +15,6 @@ public class VideoHostingDbContext : DbContext
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
     public DbSet<VideoReaction> VideoReactions { get; set; } = null!;
     public DbSet<AdminActionLog> AdminActionLogs { get; set; } = null!;
-    public DbSet<ViewHistory> ViewHistories { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -107,42 +106,6 @@ public class VideoHostingDbContext : DbContext
             entity.HasOne(vr => vr.Video)
                 .WithMany(v => v.VideoReactions)
                 .HasForeignKey(vr => vr.VideoId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-        
-        // VideoReaction entity configuration
-        modelBuilder.Entity<VideoReaction>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.UserId, e.VideoId }).IsUnique();
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW()");
-            
-            entity.HasOne(vr => vr.User)
-                .WithMany(u => u.VideoReactions)
-                .HasForeignKey(vr => vr.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-                
-            entity.HasOne(vr => vr.Video)
-                .WithMany(v => v.VideoReactions)
-                .HasForeignKey(vr => vr.VideoId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-        
-        // ViewHistory entity configuration
-        modelBuilder.Entity<ViewHistory>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.ViewedAt).HasDefaultValueSql("NOW()");
-            
-            entity.HasOne(vh => vh.User)
-                .WithMany()
-                .HasForeignKey(vh => vh.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-                
-            entity.HasOne(vh => vh.Video)
-                .WithMany()
-                .HasForeignKey(vh => vh.VideoId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
         
