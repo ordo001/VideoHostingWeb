@@ -77,11 +77,34 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Неверный email или пароль");
         }
 
+        // Проверка блокировки пользователя
+        if (user.IsBanned)
+        {
+            // Проверяем, истек ли срок блокировки
+            if (user.BannedUntil.HasValue && user.BannedUntil.Value <= DateTime.UtcNow)
+            {
+                // Срок блокировки истек, разблокируем пользователя
+                user.IsBanned = false;
+                user.BannedUntil = null;
+                user.BanReason = null;
+                await _userRepository.UpdateAsync(user);
+            }
+            else
+            {
+                // Пользователь заблокирован и срок блокировки еще не истек
+                throw new UnauthorizedAccessException("Пользователь заблокирован");
+            }
+        }
+
         // Проверка пароля
         if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
             throw new UnauthorizedAccessException("Неверный email или пароль");
         }
+
+        // Обновляем дату последнего входа
+        user.LastLoginAt = DateTime.UtcNow;
+        await _userRepository.UpdateAsync(user);
 
         // Генерация токена
         var token = _tokenGenerator.GenerateToken(user);
@@ -113,6 +136,20 @@ public class AuthService : IAuthService
         if (user == null)
         {
             throw new InvalidOperationException("Пользователь не найден");
+        }
+
+        // Проверка блокировки пользователя
+        if (user.IsBanned)
+        {
+            // Проверяем, истек ли срок блокировки
+            if (user.BannedUntil.HasValue && user.BannedUntil.Value <= DateTime.UtcNow)
+            {
+                // Срок блокировки истек, разблокируем пользователя
+                user.IsBanned = false;
+                user.BannedUntil = null;
+                user.BanReason = null;
+                await _userRepository.UpdateAsync(user);
+            }
         }
 
         return new UserDto

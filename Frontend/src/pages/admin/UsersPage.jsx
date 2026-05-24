@@ -302,6 +302,7 @@ const fetchUsers = async () => {
                           variant="secondary"
                           size="sm"
                           onClick={() => handleAdminToggle(user.id, true)}
+                          disabled={user.id === localStorage.getItem('userId')} // Блокируем кнопку для текущего админа
                         >
                           Отозвать админ права
                         </Button>

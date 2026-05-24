@@ -21,7 +21,6 @@ import {
   DashboardPage,
   UsersPage,
   VideosPage,
-  StatsPage,
   LogsPage
 } from './pages/admin';
 import videoService from './services/videoService';
@@ -176,7 +175,6 @@ function App() {
             <Route path="/admin" element={<AdminLayout><DashboardPage /></AdminLayout>} />
             <Route path="/admin/users" element={<AdminLayout><UsersPage /></AdminLayout>} />
             <Route path="/admin/videos" element={<AdminLayout><VideosPage /></AdminLayout>} />
-            <Route path="/admin/stats" element={<AdminLayout><StatsPage /></AdminLayout>} />
             <Route path="/admin/logs" element={<AdminLayout><LogsPage /></AdminLayout>} />
             
             <Route path="/loading" element={

@@ -144,17 +144,7 @@ export const adminService = {
     }
   },
   
-  // Получение статистики платформы
-  getPlatformStats: async (period = "30d") => {
-    try {
-      const response = await adminApiClient.get('/admin/stats', { 
-        params: { period } 
-      });
-      return response;
-    } catch (error) {
-      throw new Error(error.message || 'Ошибка получения статистики платформы');
-    }
-  },
+  
   
   // Получение логов действий администраторов
   getAdminLogs: async (params = {}) => {
@@ -163,6 +153,18 @@ export const adminService = {
       return response;
     } catch (error) {
       throw new Error(error.message || 'Ошибка получения логов администраторов');
+    }
+  },
+  
+  // Получение статистики платформы
+  getPlatformStats: async (period = '30d') => {
+    try {
+      const response = await adminApiClient.get('/admin/stats', { 
+        params: { period }
+      });
+      return response;
+    } catch (error) {
+      throw new Error(error.message || 'Ошибка получения статистики платформы');
     }
   },
 };

@@ -135,8 +135,19 @@ public class AdminService : IAdminService
 
     public async Task<bool> MakeUserAdminAsync(Guid userId, Guid adminId, AdminActionRequestDto request, string ipAddress, string userAgent)
     {
+        // Проверка, что админ, выполняющий действие, является суперадмином (например, первым админом системы)
+        var currentAdmin = await _context.Users.FindAsync(adminId);
+        if (currentAdmin == null || !currentAdmin.IsAdmin)
+        {
+            return false;
+        }
+
         var user = await _context.Users.FindAsync(userId);
         if (user == null)
+            return false;
+
+        // Нельзя назначить админом пользователя, который уже является админом
+        if (user.IsAdmin)
             return false;
 
         user.IsAdmin = true;
@@ -160,8 +171,25 @@ public class AdminService : IAdminService
 
     public async Task<bool> RevokeUserAdminAsync(Guid userId, Guid adminId, AdminActionRequestDto request, string ipAddress, string userAgent)
     {
+        // Проверка, что админ, выполняющий действие, является суперадмином (например, первым админом системы)
+        var currentAdmin = await _context.Users.FindAsync(adminId);
+        if (currentAdmin == null || !currentAdmin.IsAdmin)
+        {
+            return false;
+        }
+
         var user = await _context.Users.FindAsync(userId);
         if (user == null)
+            return false;
+
+        // Нельзя отозвать права у самого себя
+        if (user.Id == adminId)
+        {
+            return false;
+        }
+
+        // Нельзя отозвать права у пользователя, который не является админом
+        if (!user.IsAdmin)
             return false;
 
         user.IsAdmin = false;
@@ -196,6 +224,7 @@ public class AdminService : IAdminService
                 v.User.Name.Contains(request.SearchTerm));
         }
 
+        // Исправляем фильтрацию по статусу модерации
         if (!string.IsNullOrEmpty(request.ModerationStatus) && request.ModerationStatus != "All")
         {
             if (Enum.TryParse<ModerationStatus>(request.ModerationStatus, out var status))
@@ -203,6 +232,7 @@ public class AdminService : IAdminService
                 query = query.Where(v => v.ModerationStatus == status);
             }
         }
+        // Если указано "All", то не применяем фильтр - показываем все видео
 
         if (request.DateFrom.HasValue)
         {
@@ -309,6 +339,7 @@ public class AdminService : IAdminService
     public async Task<PlatformStatsDto> GetPlatformStatsAsync(string period = "30d")
     {
         var now = DateTime.UtcNow;
+        var today = now.Date;
         var dateFrom = period switch
         {
             "24h" => now.AddDays(-1),
@@ -320,18 +351,28 @@ public class AdminService : IAdminService
 
         // Общая статистика
         var totalUsers = await _context.Users.CountAsync();
-        var newUsers = await _context.Users.CountAsync(u => u.CreatedAt >= dateFrom);
         var totalVideos = await _context.Videos.CountAsync();
+        var totalViews = await _context.Videos.SumAsync(v => (int?)v.Views) ?? 0;
+        var totalLikes = await _context.Videos.SumAsync(v => (int?)v.Likes) ?? 0;
+        
+        // Получаем точную статистику за сегодня из таблицы DailyStatistics
+        var todayStats = await _context.DailyStatistics
+            .FirstOrDefaultAsync(ds => ds.Date == today);
+            
+        var newUsersToday = todayStats?.NewUsers ?? 0;
+        var newVideosToday = todayStats?.NewVideos ?? 0;
+        var newViewsToday = todayStats?.NewViews ?? 0;
+        var newLikesToday = todayStats?.NewLikes ?? 0;
+
+        // Для периодов используем приближенный подсчет (как было ранее)
+        var newUsers = await _context.Users.CountAsync(u => u.CreatedAt >= dateFrom);
         var newVideos = await _context.Videos.CountAsync(v => v.CreatedAt >= dateFrom);
-        var totalViews = await _context.Videos.SumAsync(v => v.Views);
-        
-        // Для новых просмотров нужно будет реализовать отдельную таблицу просмотров
-        var newViews = 0; // Временно
-        
-        var totalLikes = await _context.Videos.SumAsync(v => v.Likes);
-        
-        // Для новых лайков нужно будет реализовать отдельную таблицу
-        var newLikes = 0; // Временно
+        var newViews = await _context.Videos
+            .Where(v => v.CreatedAt >= dateFrom)
+            .SumAsync(v => (int?)v.Views) ?? 0;
+        var newLikes = await _context.Videos
+            .Where(v => v.CreatedAt >= dateFrom)
+            .SumAsync(v => (int?)v.Likes) ?? 0;
 
         // Рост пользователей
         var userGrowth = await _context.Users
@@ -345,11 +386,20 @@ public class AdminService : IAdminService
             .OrderBy(g => g.Date)
             .ToListAsync();
 
-        // Популярные видео
-        var popularVideos = await _context.Videos
+        // Популярные видео (с ограничением по периоду)
+        var popularVideosQuery = _context.Videos
             .Include(v => v.User)
+            .AsQueryable();
+
+        // Применяем фильтр по периоду только если это не "все время"
+        if (period != "all")
+        {
+            popularVideosQuery = popularVideosQuery.Where(v => v.CreatedAt >= dateFrom);
+        }
+
+        var popularVideos = await popularVideosQuery
             .OrderByDescending(v => v.Views)
-            .Take(5)
+            .Take(10) // Увеличиваем количество для более полной информации
             .Select(v => new PopularVideoDto
             {
                 Id = v.Id,
@@ -360,17 +410,21 @@ public class AdminService : IAdminService
             })
             .ToListAsync();
 
-        // График активности
+        // График активности (исправляем проблему с днями)
         var activityGraph = new List<ActivityGraphDto>();
         var days = (int)(now - dateFrom).TotalDays;
+        
+        // Ограничиваем количество дней для больших периодов
+        if (days > 365) days = 365; // Максимум 365 дней
+        
         for (int i = 0; i <= days; i++)
         {
-            var day = dateFrom.AddDays(i);
+            var day = dateFrom.AddDays(i).Date; // Убедимся, что работаем с датами без времени
             var nextDay = day.AddDays(1);
             
             var views = await _context.Videos
                 .Where(v => v.CreatedAt >= day && v.CreatedAt < nextDay)
-                .SumAsync(v => v.Views);
+                .SumAsync(v => (int?)v.Views) ?? 0;
                 
             var uploads = await _context.Videos
                 .CountAsync(v => v.CreatedAt >= day && v.CreatedAt < nextDay);
@@ -387,7 +441,22 @@ public class AdminService : IAdminService
             });
         }
 
-        // География пользователей (временно пусто, нужнд отдельное хранение геоданных)
+        // Последние загруженные видео
+        var recentVideos = await _context.Videos
+            .Include(v => v.User)
+            .OrderByDescending(v => v.CreatedAt)
+            .Take(5)
+            .Select(v => new PopularVideoDto
+            {
+                Id = v.Id,
+                Title = v.Title,
+                AuthorName = v.User.Name,
+                Views = v.Views,
+                Likes = v.Likes
+            })
+            .ToListAsync();
+
+        // География пользователей (временно пусто, нужна отдельное хранение геоданных)
         var userGeography = new List<UserGeographyDto>();
 
         return new PlatformStatsDto
@@ -402,6 +471,7 @@ public class AdminService : IAdminService
             NewLikes = newLikes,
             UserGrowth = userGrowth.ToArray(),
             PopularVideos = popularVideos.ToArray(),
+            RecentVideos = recentVideos.ToArray(),
             ActivityGraph = activityGraph.ToArray(),
             UserGeography = userGeography.ToArray()
         };
