@@ -63,7 +63,7 @@ const DashboardPage = () => {
         case '24h': return 24; // Почасовые данные за 24 часа
         case '7d': return 7; // Дневные данные за 7 дней
         case '30d': return 30; // Дневные данные за 30 дней
-        case 'all': return 30; // Месячные данные (изначально 30 точек)
+        case 'all': return 12; // Месячные данные (12 месяцев)
         default: return 7;
       }
     };
@@ -77,8 +77,11 @@ const DashboardPage = () => {
         // Для 24 часов показываем часы
         const hour = date.getHours();
         return `${hour}:00`;
-      } else if (period === '30d' || period === 'all') {
-        // Для 30 дней и всего времени показываем день and месяц
+      } else if (period === 'all') {
+        // Для "всё время" показываем месяц и год
+        return date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' });
+      } else if (period === '30d') {
+        // Для 30 дней показываем день и месяц
         return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
       } else {
         // Для 7 дней показываем день недели
@@ -88,14 +91,52 @@ const DashboardPage = () => {
     
     // Функция для определения смещения в зависимости от периода
     const getTimeOffset = (i, period) => {
+      const date = new Date(today);
       if (period === '24h') {
         // Для 24 часов смещаем по часам
-        date?.setHours(today.getHours() - i);
+        date.setHours(today.getHours() - i);
+        return date;
+      } else if (period === 'all') {
+        // Для "всё время" смещаем по месяцам
+        date.setMonth(today.getMonth() - i);
         return date;
       } else {
         // Для остальных периодов смещаем по дням
-        date?.setDate(today?.getDate() - i);
+        date.setDate(today.getDate() - i);
         return date;
+      }
+    };
+    
+    // Вспомогательная функция для нормализации даты из данных
+    const normalizeDate = (dateStr) => {
+      // Пытаемся распарсить дату различными способами
+      try {
+        // Если это уже объект Date
+        if (dateStr instanceof Date) {
+          return new Date(dateStr);
+        }
+        
+        // Если это строка, пробуем стандартный парсинг
+        if (typeof dateStr === 'string') {
+          // Пробуем создать дату напрямую
+          let date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date;
+          }
+          
+          // Если стандартный парсинг не удался, попробуем другие форматы
+          // Например, если дата в формате "2023-12-01T00:00:00"
+          date = new Date(dateStr.replace(' ', 'T'));
+          if (!isNaN(date.getTime())) {
+            return date;
+          }
+        }
+        
+        // Если ничего не помогло, возвращаем новую дату
+        return new Date();
+      } catch (e) {
+        console.warn('Ошибка при парсинге даты:', dateStr, e);
+        return new Date();
       }
     };
     
@@ -106,33 +147,83 @@ const DashboardPage = () => {
     if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
       console.log('Используем реальные данные userGrowth:', statsData.userGrowth);
       
-      // Берем последние N дней из данных
-      const lastDays = statsData.userGrowth.slice(-periodDays);
-      
-      // Заполняем недостающие точки данных
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
+      if (selectedPeriod === 'all') {
+        // Для "всё время" агрегируем данные по месяцам
+        const monthlyData = {};
         
-        // Ищем данные за этот период в userGrowth
-        const periodData = lastDays.find(item => {
-          const itemDate = new Date(item.date);
-          if (selectedPeriod === '24h') {
-            // для почасовых данных сравниваем часы
-            return itemDate.getHours() === adjustedDate.getHours() && 
-                   itemDate.toDateString() === adjustedDate.toDateString();
-          } else {
-            // для дневных данных сравниваем даты
-            return itemDate.toDateString() === adjustedDate.toDateString();
+        statsData.userGrowth.forEach(item => {
+          const itemDate = normalizeDate(item.date || item.Date);
+          const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = {
+              date: new Date(itemDate.getFullYear(), itemDate.getMonth(), 1),
+              count: 0
+            };
           }
+          
+          monthlyData[monthKey].count += (item.count || item.Count || 0);
         });
         
-        const value = periodData ? periodData.count : Math.floor(Math.random() * 20) + 5;
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, selectedPeriod);
+          periodPoints.push(pointDate);
+        }
         
-        userGrowthData.push({
-          label,
-          value
+        // Заполняем данные для каждого периода
+        periodPoints.forEach(pointDate => {
+          const label = getLabel(pointDate, selectedPeriod);
+          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
+          
+          const pointData = monthlyData[monthKey];
+          const value = pointData ? pointData.count : 0;
+          
+          userGrowthData.push({
+            label,
+            value
+          });
+        });
+      } else {
+        // Для остальных периодов
+        
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, selectedPeriod);
+          periodPoints.push(pointDate);
+        }
+        
+        // Заполняем данные для каждого периода
+        periodPoints.forEach(pointDate => {
+          const label = getLabel(pointDate, selectedPeriod);
+          
+          // Ищем данные за этот период в userGrowth
+          let value = 0;
+          if (selectedPeriod === '24h') {
+            // Для почасовых данных ищем по часу
+            const hourPoint = pointDate.getHours();
+            const pointData = statsData.userGrowth.find(item => {
+              const itemDate = normalizeDate(item.date || item.Date);
+              return itemDate.getHours() === hourPoint && 
+                     itemDate.toDateString() === pointDate.toDateString();
+            });
+            value = pointData ? (pointData.count || pointData.Count || 0) : 0;
+          } else {
+            // Для дневных данных ищем по дню
+            const pointDateString = pointDate.toDateString();
+            const pointData = statsData.userGrowth.find(item => {
+              const itemDate = normalizeDate(item.date || item.Date);
+              return itemDate.toDateString() === pointDateString;
+            });
+            value = pointData ? (pointData.count || pointData.Count || 0) : 0;
+          }
+          
+          userGrowthData.push({
+            label,
+            value
+          });
         });
       }
     } else {
@@ -153,9 +244,6 @@ const DashboardPage = () => {
       }
     }
     
-    // Этот блок больше не нужен, так как мы заменили график активности платформы
-    // на график роста загрузки видео, но оставляем комментарий для ясности
-    
     // Данные для круговой диаграммы популярности контента
     // Используем популярные видео для создания категорий
     let contentPopularityData;
@@ -169,7 +257,7 @@ const DashboardPage = () => {
       statsData.popularVideos.forEach(video => {
         // Извлекаем категории из названий видео (упрощенная логика)
         let category = 'Другое';
-        const title = video.title.toLowerCase();
+        const title = (video.title || video.Title || '').toLowerCase();
         
         if (title.includes('музык') || title.includes('music')) {
           category = 'Музыка';
@@ -183,7 +271,8 @@ const DashboardPage = () => {
           category = 'Развлечения';
         }
         
-        categories[category] = (categories[category] || 0) + video.views;
+        const views = video.views || video.Views || 0;
+        categories[category] = (categories[category] || 0) + views;
       });
       
       // Преобразуем в формат для графика
@@ -207,69 +296,87 @@ const DashboardPage = () => {
     // Данные для графика роста просмотров
     const viewsGrowthData = [];
     
-    // Используем реальные данные из viewsGrowth или activityGraph
-    if (statsData?.viewsGrowth && statsData.viewsGrowth.length > 0) {
-      console.log('Используем реальные данные viewsGrowth:', statsData.viewsGrowth);
-      
-      // Берем последние N точек данных
-      const lastPoints = statsData.viewsGrowth.slice(-periodDays);
-      
-      // Заполняем недостающие точки данных
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
-        
-        // Ищем данные за этот период в viewsGrowth
-        const periodData = lastPoints.find(item => {
-          const itemDate = new Date(item.date);
-          if (selectedPeriod === '24h') {
-            // для почасовых данных сравниваем часы
-            return itemDate.getHours() === adjustedDate.getHours() && 
-                   itemDate.toDateString() === adjustedDate.toDateString();
-          } else {
-            // для дневных данных сравниваем даты
-            return itemDate.toDateString() === adjustedDate.toDateString();
-          }
-        });
-        
-        const value = periodData ? periodData.count : Math.floor(Math.random() * 1000) + 500;
-        
-        viewsGrowthData.push({
-          label,
-          value
-        });
-      }
-    } else if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
+    // Используем реальные данные из activityGraph
+    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
       console.log('Используем данные activityGraph для просмотров:', statsData.activityGraph);
       
-      // Берем последние N точек данных
-      const lastPoints = statsData.activityGraph.slice(-periodDays);
-      
-      // Заполняем недостающие точки
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
+      if (selectedPeriod === 'all') {
+        // Для "всё времени" агрегируем данные по месяцам
+        const monthlyData = {};
         
-        // Ищем данные за этот период в activityGraph
-        const periodData = lastPoints.find(item => {
-          const itemDate = new Date(item.date);
-          if (selectedPeriod === '24h') {
-            // для почасовых данных сравниваем часы
-            return itemDate.getHours() === adjustedDate.getHours() && 
-                   itemDate.toDateString() === adjustedDate.toDateString();
-          } else {
-            // для дневных данных сравниваем даты
-            return itemDate.toDateString() === adjustedDate.toDateString();
+        statsData.activityGraph.forEach(item => {
+          const itemDate = normalizeDate(item.date || item.Date);
+          const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = {
+              date: new Date(itemDate.getFullYear(), itemDate.getMonth(), 1),
+              views: 0
+            };
           }
+          
+          monthlyData[monthKey].views += (item.views || item.Views || 0);
         });
         
-        const value = periodData ? periodData.views : Math.floor(Math.random() * 1000) + 500;
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, selectedPeriod);
+          periodPoints.push(pointDate);
+        }
         
-        viewsGrowthData.push({
-          label,
-          value
+        // Заполняем данные для каждого периода
+        periodPoints.forEach(pointDate => {
+          const label = getLabel(pointDate, selectedPeriod);
+          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
+          
+          const pointData = monthlyData[monthKey];
+          const value = pointData ? pointData.views : 0;
+          
+          viewsGrowthData.push({
+            label,
+            value
+          });
+        });
+      } else {
+        // Для остальных периодов
+        
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, selectedPeriod);
+          periodPoints.push(pointDate);
+        }
+        
+        // Заполняем данные для каждого периода
+        periodPoints.forEach(pointDate => {
+          const label = getLabel(pointDate, selectedPeriod);
+          
+          // Ищем данные за этот период в activityGraph
+          let value = 0;
+          if (selectedPeriod === '24h') {
+            // Для почасовых данных ищем по часу
+            const hourPoint = pointDate.getHours();
+            const pointData = statsData.activityGraph.find(item => {
+              const itemDate = normalizeDate(item.date || item.Date);
+              return itemDate.getHours() === hourPoint && 
+                     itemDate.toDateString() === pointDate.toDateString();
+            });
+            value = pointData ? (pointData.views || pointData.Views || 0) : 0;
+          } else {
+            // Для дневных данных ищем по дню
+            const pointDateString = pointDate.toDateString();
+            const pointData = statsData.activityGraph.find(item => {
+              const itemDate = normalizeDate(item.date || item.Date);
+              return itemDate.toDateString() === pointDateString;
+            });
+            value = pointData ? (pointData.views || pointData.Views || 0) : 0;
+          }
+          
+          viewsGrowthData.push({
+            label,
+            value
+          });
         });
       }
     } else {
@@ -293,69 +400,87 @@ const DashboardPage = () => {
     // Данные для графика роста загрузки видео
     const videoUploadsData = [];
     
-    // Используем реальные данные из videoUploadsGrowth или activityGraph
-    if (statsData?.videoUploadsGrowth && statsData.videoUploadsGrowth.length > 0) {
-      console.log('Используем реальные данные videoUploadsGrowth:', statsData.videoUploadsGrowth);
-      
-      // Берем последние N точек данных
-      const lastPoints = statsData.videoUploadsGrowth.slice(-periodDays);
-      
-      // Заполняем недостающие точки данных
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
-        
-        // Ищем данные за этот период в videoUploadsGrowth
-        const periodData = lastPoints.find(item => {
-          const itemDate = new Date(item.date);
-          if (selectedPeriod === '24h') {
-            // для почасовых данных сравниваем часы
-            return itemDate.getHours() === adjustedDate.getHours() && 
-                   itemDate.toDateString() === adjustedDate.toDateString();
-          } else {
-            // для дневных данных сравниваем даты
-            return itemDate.toDateString() === adjustedDate.toDateString();
-          }
-        });
-        
-        const value = periodData ? periodData.count : Math.floor(Math.random() * 10) + 1;
-        
-        videoUploadsData.push({
-          label,
-          value
-        });
-      }
-    } else if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
+    // Используем реальные данные из activityGraph
+    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
       console.log('Используем данные activityGraph для загрузки видео:', statsData.activityGraph);
       
-      // Берем последние N точек данных
-      const lastPoints = statsData.activityGraph.slice(-periodDays);
-      
-      // Заполняем недостающие точки
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
+      if (selectedPeriod === 'all') {
+        // Для "всё времени" агрегируем данные по месяцам
+        const monthlyData = {};
         
-        // Ищем данные за этот период в activityGraph
-        const periodData = lastPoints.find(item => {
-          const itemDate = new Date(item.date);
-          if (selectedPeriod === '24h') {
-            // для почасовых данных сравниваем часы
-            return itemDate.getHours() === adjustedDate.getHours() && 
-                   itemDate.toDateString() === adjustedDate.toDateString();
-          } else {
-            // для дневных данных сравниваем даты
-            return itemDate.toDateString() === adjustedDate.toDateString();
+        statsData.activityGraph.forEach(item => {
+          const itemDate = normalizeDate(item.date || item.Date);
+          const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = {
+              date: new Date(itemDate.getFullYear(), itemDate.getMonth(), 1),
+              uploads: 0
+            };
           }
+          
+          monthlyData[monthKey].uploads += (item.uploads || item.Uploads || 0);
         });
         
-        const value = periodData ? periodData.uploads : Math.floor(Math.random() * 10) + 1;
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, selectedPeriod);
+          periodPoints.push(pointDate);
+        }
         
-        videoUploadsData.push({
-          label,
-          value
+        // Заполняем данные для каждого периода
+        periodPoints.forEach(pointDate => {
+          const label = getLabel(pointDate, selectedPeriod);
+          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
+          
+          const pointData = monthlyData[monthKey];
+          const value = pointData ? pointData.uploads : 0;
+          
+          videoUploadsData.push({
+            label,
+            value
+          });
+        });
+      } else {
+        // Для остальных периодов
+        
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, selectedPeriod);
+          periodPoints.push(pointDate);
+        }
+        
+        // Заполняем данные для каждого периода
+        periodPoints.forEach(pointDate => {
+          const label = getLabel(pointDate, selectedPeriod);
+          
+          // Ищем данные за этот период в activityGraph
+          let value = 0;
+          if (selectedPeriod === '24h') {
+            // Для почасовых данных ищем по часу
+            const hourPoint = pointDate.getHours();
+            const pointData = statsData.activityGraph.find(item => {
+              const itemDate = normalizeDate(item.date || item.Date);
+              return itemDate.getHours() === hourPoint && 
+                     itemDate.toDateString() === pointDate.toDateString();
+            });
+            value = pointData ? (pointData.uploads || pointData.Uploads || 0) : 0;
+          } else {
+            // Для дневных данных ищем по дню
+            const pointDateString = pointDate.toDateString();
+            const pointData = statsData.activityGraph.find(item => {
+              const itemDate = normalizeDate(item.date || item.Date);
+              return itemDate.toDateString() === pointDateString;
+            });
+            value = pointData ? (pointData.uploads || pointData.Uploads || 0) : 0;
+          }
+          
+          videoUploadsData.push({
+            label,
+            value
+          });
         });
       }
     } else {
