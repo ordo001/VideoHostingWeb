@@ -12,8 +12,8 @@ using VideoHosting.Infrastructure.Data;
 namespace VideoHosting.Infrastructure.Migrations
 {
     [DbContext(typeof(VideoHostingDbContext))]
-    [Migration("20260525154459_AddVideoViewsTable")]
-    partial class AddVideoViewsTable
+    [Migration("20260525162755_AddAboba")]
+    partial class AddAboba
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

@@ -90,11 +90,11 @@ const DashboardPage = () => {
     const getTimeOffset = (i, period) => {
       if (period === '24h') {
         // Для 24 часов смещаем по часам
-        date.setHours(today.getHours() - i);
+        date?.setHours(today.getHours() - i);
         return date;
       } else {
         // Для остальных периодов смещаем по дням
-        date.setDate(today.getDate() - i);
+        date?.setDate(today?.getDate() - i);
         return date;
       }
     };
@@ -681,7 +681,9 @@ const DashboardPage = () => {
             height={300}
           />
         </div>
-</div>
+     </div>
+     </div>
+     </div>
   );
 };
 

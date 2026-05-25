@@ -21,18 +21,18 @@ public class VideoRepository : IVideoRepository
 
     public async Task<IEnumerable<Video>> GetAllAsync()
     {
-        return await _context.Videos.ToListAsync();
+        return await _context.Videos.Where(x => x.IsModerated && x.Status == "Ready").ToListAsync();
     }
 
     public async Task<IEnumerable<Video>> GetByUserIdAsync(Guid userId)
     {
-        return await _context.Videos.Where(v => v.UserId == userId).ToListAsync();
+        return await _context.Videos.Where(v => v.UserId == userId && v.IsModerated && v.Status == "Ready").ToListAsync();
     }
 
     public async Task<IEnumerable<Video>> GetVideosByChannelIdAsync(Guid channelId)
     {
         return await _context.Videos
-            .Where(v => v.UserId == channelId)
+            .Where(v => v.UserId == channelId && v.IsModerated)
             .OrderByDescending(v => v.CreatedAt)
             .ToListAsync();
     }
@@ -40,7 +40,7 @@ public class VideoRepository : IVideoRepository
     public async Task<IEnumerable<Video>> GetPopularVideosAsync(DateTime fromDateTime)
     {
         return await _context.Videos
-            .Where(v => v.CreatedAt >= fromDateTime)
+            .Where(v => v.CreatedAt >= fromDateTime && v.IsModerated && v.Status == "Ready")
             .OrderByDescending(v => v.Views)
             .ThenByDescending(v => v.CreatedAt)
             .ToListAsync();
