@@ -323,15 +323,10 @@ public class AdminService : IAdminService
         var newUsers = await _context.Users.CountAsync(u => u.CreatedAt >= dateFrom);
         var totalVideos = await _context.Videos.CountAsync();
         var newVideos = await _context.Videos.CountAsync(v => v.CreatedAt >= dateFrom);
-        var totalViews = await _context.Videos.SumAsync(v => v.Views);
-        
-        // Для новых просмотров нужно будет реализовать отдельную таблицу просмотров
-        var newViews = 0; // Временно
-        
-        var totalLikes = await _context.Videos.SumAsync(v => v.Likes);
-        
-        // Для новых лайков нужно будет реализовать отдельную таблицу
-        var newLikes = 0; // Временно
+        var totalViews = await _context.VideoViews.CountAsync();
+        var newViews = await _context.VideoViews.CountAsync(v => v.ViewedAt >= dateFrom);
+        var totalLikes = await _context.VideoReactions.CountAsync(vr => vr.ReactionType == ReactionType.Like);
+        var newLikes = await _context.VideoReactions.CountAsync(vr => vr.ReactionType == ReactionType.Like && vr.CreatedAt >= dateFrom);
 
         // Рост пользователей
         var userGrowth = await _context.Users
@@ -368,9 +363,9 @@ public class AdminService : IAdminService
             var day = dateFrom.AddDays(i);
             var nextDay = day.AddDays(1);
             
-            var views = await _context.Videos
-                .Where(v => v.CreatedAt >= day && v.CreatedAt < nextDay)
-                .SumAsync(v => v.Views);
+            var views = await _context.VideoViews
+                .Where(v => v.ViewedAt >= day && v.ViewedAt < nextDay)
+                .CountAsync();
                 
             var uploads = await _context.Videos
                 .CountAsync(v => v.CreatedAt >= day && v.CreatedAt < nextDay);
@@ -469,6 +464,26 @@ public class AdminService : IAdminService
             TotalPages = (int)Math.Ceiling((double)totalItems / request.PageSize),
             CurrentPage = request.Page
         };
+    }
+
+    public async Task<List<RecentVideoDto>> GetRecentVideosAsync(int count = 5)
+    {
+        var recentVideos = await _context.Videos
+            .Include(v => v.User)
+            .OrderByDescending(v => v.CreatedAt)
+            .Take(count)
+            .Select(v => new RecentVideoDto
+            {
+                Id = v.Id,
+                Title = v.Title,
+                ThumbnailUrl = v.ThumbnailUrl,
+                AuthorName = v.User.Name,
+                CreatedAt = v.CreatedAt,
+                ViewCount = v.VideoViews.Count()
+            })
+            .ToListAsync();
+
+        return recentVideos;
     }
 
     public async Task LogAdminActionAsync(Guid adminId, string action, string targetType, Guid? targetId, string? reason, string? details, string ipAddress, string userAgent)

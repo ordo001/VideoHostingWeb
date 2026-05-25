@@ -156,6 +156,18 @@ export const adminService = {
     }
   },
   
+  // Получение последних загруженных видео
+  getRecentVideos: async (count = 5) => {
+    try {
+      const response = await adminApiClient.get('/admin/recent-videos', { 
+        params: { count } 
+      });
+      return response;
+    } catch (error) {
+      throw new Error(error.message || 'Ошибка получения последних видео');
+    }
+  },
+  
   // Получение логов действий администраторов
   getAdminLogs: async (params = {}) => {
     try {

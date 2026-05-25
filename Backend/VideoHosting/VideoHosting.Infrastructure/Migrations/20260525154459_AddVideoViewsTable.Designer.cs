@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VideoHosting.Infrastructure.Data;
@@ -11,9 +12,11 @@ using VideoHosting.Infrastructure.Data;
 namespace VideoHosting.Infrastructure.Migrations
 {
     [DbContext(typeof(VideoHostingDbContext))]
-    partial class VideoHostingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260525154459_AddVideoViewsTable")]
+    partial class AddVideoViewsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

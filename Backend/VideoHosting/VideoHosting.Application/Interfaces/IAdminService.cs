@@ -18,6 +18,7 @@ public interface IAdminService
     
     // Статистика
     Task<PlatformStatsDto> GetPlatformStatsAsync(string period = "30d");
+    Task<List<RecentVideoDto>> GetRecentVideosAsync(int count = 5);
     
     // Логи
     Task<PaginatedResponseDto<AdminActionLogDto>> GetLogsAsync(AdminLogsRequestDto request);

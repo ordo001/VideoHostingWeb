@@ -32,4 +32,5 @@ public class Video
     public User? ModeratedBy { get; set; }
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
     public ICollection<VideoReaction> VideoReactions { get; set; } = new List<VideoReaction>();
+    public ICollection<VideoView> VideoViews { get; set; } = new List<VideoView>();
 }

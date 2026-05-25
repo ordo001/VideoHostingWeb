@@ -15,6 +15,7 @@ public class VideoHostingDbContext : DbContext
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
     public DbSet<VideoReaction> VideoReactions { get; set; } = null!;
     public DbSet<AdminActionLog> AdminActionLogs { get; set; } = null!;
+    public DbSet<VideoView> VideoViews { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -125,6 +126,24 @@ public class VideoHostingDbContext : DbContext
                 .WithMany(u => u.AdminActionLogs)
                 .HasForeignKey(l => l.AdminUserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        // VideoView entity configuration
+        modelBuilder.Entity<VideoView>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.ViewedAt).HasDefaultValueSql("NOW()");
+            
+            entity.HasOne(vv => vv.Video)
+                .WithMany(v => v.VideoViews)
+                .HasForeignKey(vv => vv.VideoId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.HasOne(vv => vv.User)
+                .WithMany()
+                .HasForeignKey(vv => vv.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

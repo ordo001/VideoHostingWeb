@@ -10,11 +10,12 @@ const DashboardPage = () => {
   const { showNotification } = useUI();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
+  const [recentVideos, setRecentVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chartsData, setChartsData] = useState({
     userGrowth: [],
-    viewsGrowth: [], // Добавляем данные для роста просмотров
-    platformActivity: [],
+    viewsGrowth: [], // Данные для роста просмотров
+    videoUploads: [], // Данные для роста загрузки видео
     contentPopularity: []
   });
   
@@ -22,18 +23,23 @@ const DashboardPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('7d');
   
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
         console.log('Загрузка статистики...');
         const data = await adminService.getPlatformStats(selectedPeriod);
         console.log('Полученные данные:', data);
         setStats(data);
         
+        // Загружаем последние видео
+        const videosData = await adminService.getRecentVideos(5);
+        console.log('Последние видео:', videosData);
+        setRecentVideos(videosData || []);
+        
         // Подготавливаем данные для графиков
         // Если API не предоставляет эти данные, генерируем демонстрационные данные
         prepareChartsData(data);
       } catch (err) {
-        console.error('Ошибка при загрузке статистики:', err);
+        console.error('Ошибка при загрузке данных:', err);
         showNotification({
           type: 'error',
           title: 'Ошибка загрузки',
@@ -44,111 +50,111 @@ const DashboardPage = () => {
       }
     };
     
-    fetchStats();
+    fetchData();
   }, [showNotification, selectedPeriod]);
   
   // Функция для подготовки данных для графиков
   const prepareChartsData = (statsData) => {
     console.log('Подготовка данных для графиков:', statsData);
     
-    // Данные для графика роста пользователей за последние 7 дней
-    const userGrowthData = [];
+    // Определяем количество точек данных на основе выбранного периода
+    const getPeriodDays = (period) => {
+      switch (period) {
+        case '24h': return 24; // Почасовые данные за 24 часа
+        case '7d': return 7; // Дневные данные за 7 дней
+        case '30d': return 30; // Дневные данные за 30 дней
+        case 'all': return 30; // Месячные данные (изначально 30 точек)
+        default: return 7;
+      }
+    };
+    
+    const periodDays = getPeriodDays(selectedPeriod);
     const today = new Date();
+    
+    // Функция для генерации метки в зависимости от периода
+    const getLabel = (date, period) => {
+      if (period === '24h') {
+        // Для 24 часов показываем часы
+        const hour = date.getHours();
+        return `${hour}:00`;
+      } else if (period === '30d' || period === 'all') {
+        // Для 30 дней и всего времени показываем день and месяц
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+      } else {
+        // Для 7 дней показываем день недели
+        return date.toLocaleDateString('ru-RU', { weekday: 'short' });
+      }
+    };
+    
+    // Функция для определения смещения в зависимости от периода
+    const getTimeOffset = (i, period) => {
+      if (period === '24h') {
+        // Для 24 часов смещаем по часам
+        date.setHours(today.getHours() - i);
+        return date;
+      } else {
+        // Для остальных периодов смещаем по дням
+        date.setDate(today.getDate() - i);
+        return date;
+      }
+    };
+    
+    // Данные для графика роста пользователей
+    const userGrowthData = [];
     
     // Используем реальные данные из API, если они есть
     if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
       console.log('Используем реальные данные userGrowth:', statsData.userGrowth);
       
-      // Берем последние 7 дней из данных
-      const last7Days = statsData.userGrowth.slice(-7);
+      // Берем последние N дней из данных
+      const lastDays = statsData.userGrowth.slice(-periodDays);
       
-      // Заполняем недостающие дни, если данных меньше 7
-      for (let i = 6; i >= 0; i--) {
+      // Заполняем недостающие точки данных
+      for (let i = periodDays - 1; i >= 0; i--) {
         const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
         
-        // Ищем данные за этот день в userGrowth
-        const dayData = last7Days.find(item => {
+        // Ищем данные за этот период в userGrowth
+        const periodData = lastDays.find(item => {
           const itemDate = new Date(item.date);
-          return itemDate.toDateString() === date.toDateString();
+          if (selectedPeriod === '24h') {
+            // для почасовых данных сравниваем часы
+            return itemDate.getHours() === adjustedDate.getHours() && 
+                   itemDate.toDateString() === adjustedDate.toDateString();
+          } else {
+            // для дневных данных сравниваем даты
+            return itemDate.toDateString() === adjustedDate.toDateString();
+          }
         });
         
-        const value = dayData ? dayData.count : Math.floor(Math.random() * 20) + 5;
+        const value = periodData ? periodData.count : Math.floor(Math.random() * 20) + 5;
         
         userGrowthData.push({
-          label: dayName,
-          value: value
+          label,
+          value
         });
       }
     } else {
       console.log('Нет данных userGrowth, генерируем демо-данные');
       
       // Если нет данных от API, генерируем демо-данные
-      for (let i = 6; i >= 0; i--) {
+      for (let i = periodDays - 1; i >= 0; i--) {
         const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
         
         const value = Math.floor(Math.random() * 50) + Math.floor((statsData?.totalUsers || 100) / 100) + 10;
         
         userGrowthData.push({
-          label: dayName,
-          value: value
+          label,
+          value
         });
       }
     }
     
-    // Данные для графика активности платформы за последние 7 дней
-    const platformActivityData = [];
-    
-    // Используем реальные данные из API, если они есть
-    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      console.log('Используем реальные данные activityGraph:', statsData.activityGraph);
-      
-      // Берем последние 7 дней из данных
-      const last7Days = statsData.activityGraph.slice(-7);
-      
-      // Заполняем недостающие дни, если данных меньше 7
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
-        
-        // Ищем данные за этот день в activityGraph
-        const dayData = last7Days.find(item => {
-          const itemDate = new Date(item.date);
-          return itemDate.toDateString() === date.toDateString();
-        });
-        
-        const views = dayData ? dayData.views : Math.floor(Math.random() * 1000) + 500;
-        const uploads = dayData ? dayData.uploads : Math.floor(Math.random() * 10) + 1;
-        
-        platformActivityData.push({
-          label: dayName,
-          просмотры: views,
-          загрузки: uploads
-        });
-      }
-    } else {
-      console.log('Нет данных activityGraph, генерируем демо-данные');
-      
-      // Если нет данных от API, генерируем демо-данные
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
-        
-        const views = Math.floor(Math.random() * 1000) + 500;
-        const uploads = Math.floor(Math.random() * 10) + 1;
-        
-        platformActivityData.push({
-          label: dayName,
-          просмотры: views,
-          загрузки: uploads
-        });
-      }
-    }
+    // Этот блок больше не нужен, так как мы заменили график активности платформы
+    // на график роста загрузки видео, но оставляем комментарий для ясности
     
     // Данные для круговой диаграммы популярности контента
     // Используем популярные видео для создания категорий
@@ -201,47 +207,179 @@ const DashboardPage = () => {
     // Данные для графика роста просмотров
     const viewsGrowthData = [];
     
-    // Используем данные из activityGraph или генерируем на основе просмотров
-    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      const last7Days = statsData.activityGraph.slice(-7);
+    // Используем реальные данные из viewsGrowth или activityGraph
+    if (statsData?.viewsGrowth && statsData.viewsGrowth.length > 0) {
+      console.log('Используем реальные данные viewsGrowth:', statsData.viewsGrowth);
       
-      for (let i = 6; i >= 0; i--) {
+      // Берем последние N точек данных
+      const lastPoints = statsData.viewsGrowth.slice(-periodDays);
+      
+      // Заполняем недостающие точки данных
+      for (let i = periodDays - 1; i >= 0; i--) {
         const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
         
-        const dayData = last7Days.find(item => {
+        // Ищем данные за этот период в viewsGrowth
+        const periodData = lastPoints.find(item => {
           const itemDate = new Date(item.date);
-          return itemDate.toDateString() === date.toDateString();
+          if (selectedPeriod === '24h') {
+            // для почасовых данных сравниваем часы
+            return itemDate.getHours() === adjustedDate.getHours() && 
+                   itemDate.toDateString() === adjustedDate.toDateString();
+          } else {
+            // для дневных данных сравниваем даты
+            return itemDate.toDateString() === adjustedDate.toDateString();
+          }
         });
         
-        const value = dayData ? dayData.views : Math.floor(Math.random() * 1000) + 500;
+        const value = periodData ? periodData.count : Math.floor(Math.random() * 1000) + 500;
         
         viewsGrowthData.push({
-          label: dayName,
-          value: value
+          label,
+          value
+        });
+      }
+    } else if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
+      console.log('Используем данные activityGraph для просмотров:', statsData.activityGraph);
+      
+      // Берем последние N точек данных
+      const lastPoints = statsData.activityGraph.slice(-periodDays);
+      
+      // Заполняем недостающие точки
+      for (let i = periodDays - 1; i >= 0; i--) {
+        const date = new Date(today);
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
+        
+        // Ищем данные за этот период в activityGraph
+        const periodData = lastPoints.find(item => {
+          const itemDate = new Date(item.date);
+          if (selectedPeriod === '24h') {
+            // для почасовых данных сравниваем часы
+            return itemDate.getHours() === adjustedDate.getHours() && 
+                   itemDate.toDateString() === adjustedDate.toDateString();
+          } else {
+            // для дневных данных сравниваем даты
+            return itemDate.toDateString() === adjustedDate.toDateString();
+          }
+        });
+        
+        const value = periodData ? periodData.views : Math.floor(Math.random() * 1000) + 500;
+        
+        viewsGrowthData.push({
+          label,
+          value
         });
       }
     } else {
-      // Генерируем демо-данные для просмотров
-      for (let i = 6; i >= 0; i--) {
+      console.log('Нет данных для просмотров, генерируем демо-данные');
+      
+      // Если нет данных от API, генерируем демо-данные
+      for (let i = periodDays - 1; i >= 0; i--) {
         const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dayName = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
         
         const value = Math.floor(Math.random() * 1000) + 500;
         
         viewsGrowthData.push({
-          label: dayName,
-          value: value
+          label,
+          value
+        });
+      }
+    }
+    
+    // Данные для графика роста загрузки видео
+    const videoUploadsData = [];
+    
+    // Используем реальные данные из videoUploadsGrowth или activityGraph
+    if (statsData?.videoUploadsGrowth && statsData.videoUploadsGrowth.length > 0) {
+      console.log('Используем реальные данные videoUploadsGrowth:', statsData.videoUploadsGrowth);
+      
+      // Берем последние N точек данных
+      const lastPoints = statsData.videoUploadsGrowth.slice(-periodDays);
+      
+      // Заполняем недостающие точки данных
+      for (let i = periodDays - 1; i >= 0; i--) {
+        const date = new Date(today);
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
+        
+        // Ищем данные за этот период в videoUploadsGrowth
+        const periodData = lastPoints.find(item => {
+          const itemDate = new Date(item.date);
+          if (selectedPeriod === '24h') {
+            // для почасовых данных сравниваем часы
+            return itemDate.getHours() === adjustedDate.getHours() && 
+                   itemDate.toDateString() === adjustedDate.toDateString();
+          } else {
+            // для дневных данных сравниваем даты
+            return itemDate.toDateString() === adjustedDate.toDateString();
+          }
+        });
+        
+        const value = periodData ? periodData.count : Math.floor(Math.random() * 10) + 1;
+        
+        videoUploadsData.push({
+          label,
+          value
+        });
+      }
+    } else if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
+      console.log('Используем данные activityGraph для загрузки видео:', statsData.activityGraph);
+      
+      // Берем последние N точек данных
+      const lastPoints = statsData.activityGraph.slice(-periodDays);
+      
+      // Заполняем недостающие точки
+      for (let i = periodDays - 1; i >= 0; i--) {
+        const date = new Date(today);
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
+        
+        // Ищем данные за этот период в activityGraph
+        const periodData = lastPoints.find(item => {
+          const itemDate = new Date(item.date);
+          if (selectedPeriod === '24h') {
+            // для почасовых данных сравниваем часы
+            return itemDate.getHours() === adjustedDate.getHours() && 
+                   itemDate.toDateString() === adjustedDate.toDateString();
+          } else {
+            // для дневных данных сравниваем даты
+            return itemDate.toDateString() === adjustedDate.toDateString();
+          }
+        });
+        
+        const value = periodData ? periodData.uploads : Math.floor(Math.random() * 10) + 1;
+        
+        videoUploadsData.push({
+          label,
+          value
+        });
+      }
+    } else {
+      console.log('Нет данных для загрузки видео, генерируем демо-данные');
+      
+      // Если нет данных от API, генерируем демо-данные
+      for (let i = periodDays - 1; i >= 0; i--) {
+        const date = new Date(today);
+        const adjustedDate = getTimeOffset(i, selectedPeriod);
+        const label = getLabel(adjustedDate, selectedPeriod);
+        
+        const value = Math.floor(Math.random() * 10) + 1;
+        
+        videoUploadsData.push({
+          label,
+          value
         });
       }
     }
     
     const chartsData = {
       userGrowth: userGrowthData,
-      viewsGrowth: viewsGrowthData, // Добавляем данные для роста просмотров
-      platformActivity: platformActivityData,
+      viewsGrowth: viewsGrowthData, // Данные для роста просмотров
+      videoUploads: videoUploadsData, // Данные для роста загрузки видео
       contentPopularity: contentPopularityData
     };
     
@@ -257,6 +395,33 @@ const DashboardPage = () => {
     );
   }
   
+  // Функция для форматирования даты
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Сегодня';
+    } else if (diffDays === 1) {
+      return 'Вчера';
+    } else if (diffDays < 7) {
+      return `${diffDays} дня(-ей) назад`;
+    } else {
+      return date.toLocaleDateString('ru-RU', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    }
+  };
+
+  // Функция для перехода к видео
+  const handleVideoClick = (videoId) => {
+    navigate(`/video/${videoId}`);
+  };
+
   return (
     <div>
       <div className="mb-8">
@@ -357,33 +522,54 @@ const DashboardPage = () => {
       
       {/* Графики и активность */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Недавняя активность */}
+        {/* Последние загруженные видео */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-xl font-bold text-white mb-4">Недавняя активность</h2>
-          <div className="space-y-4">
-            {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-              stats.recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-start">
-                  <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
-                    {activity.adminAvatarUrl ? (
+          <h2 className="text-xl font-bold text-white mb-4">Последние видео</h2>
+          <div className="space-y-3">
+            {recentVideos && recentVideos.length > 0 ? (
+              recentVideos.map((video, index) => (
+                <div 
+                  key={index} 
+                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors duration-200"
+                  onClick={() => handleVideoClick(video.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleVideoClick(video.id);
+                    }
+                  }}
+                >
+                  {/* Превью видео */}
+                  <div className="w-20 h-14 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                    {video.thumbnailUrl ? (
                       <img 
-                        src={activity.adminAvatarUrl} 
-                        alt={activity.adminName}
-                        className="w-full h-full rounded-full object-cover"
+                        src={video.thumbnailUrl} 
+                        alt={video.title}
+                        className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-gray-400">👤</span>
+                      <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                        <span className="text-gray-400 text-xs">🎬</span>
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <p className="text-white font-medium">{activity.action}</p>
-                    <p className="text-gray-400 text-sm">{activity.timestamp}</p>
+                  
+                  {/* Информация о видео */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-medium text-sm truncate">{video.title}</h3>
+                    <p className="text-gray-400 text-xs truncate">{video.authorName}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-gray-500 text-xs">{formatDate(video.createdAt)}</p>
+                      <p className="text-gray-500 text-xs">{video.viewCount || 0} просмотров</p>
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-gray-400 text-center py-4">
-                Нет недавней активности
+              <div className="text-gray-400 text-center py-8">
+                Нет загруженных видео
               </div>
             )}
           </div>
@@ -428,7 +614,7 @@ const DashboardPage = () => {
           </div>
         </div>
       
-      {/* Графики */}
+{/* Графики */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-white">Графики статистики</h2>
@@ -471,20 +657,20 @@ const DashboardPage = () => {
           
           {/* График роста просмотров */}
           <LineChart
-            data={chartsData.viewsGrowth} // Используем данные для роста просмотров
+            data={chartsData.viewsGrowth}
             title="Рост просмотров"
             color="#10B981"
             height={300}
           />
         </div>
         
-        {/* График активности платформы */}
+        {/* График загрузки видео */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* График активности платформы */}
-          <BarChart
-            data={chartsData.platformActivity}
-            title="Активность платформы"
-            colors={['#10B981', '#F59E0B']}
+          {/* График роста загрузки видео */}
+          <LineChart
+            data={chartsData.videoUploads}
+            title="Рост загрузки видео"
+            color="#F59E0B"
             height={300}
           />
           
@@ -495,83 +681,7 @@ const DashboardPage = () => {
             height={300}
           />
         </div>
-      </div>
-      
-      {/* Недавняя активность и быстрые действия */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Недавняя активность */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-xl font-bold text-white mb-4">Недавняя активность</h2>
-          <div className="space-y-4">
-            {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-              stats.recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-start">
-                  <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
-                    {activity.adminAvatarUrl ? (
-                      <img 
-                        src={activity.adminAvatarUrl} 
-                        alt={activity.adminName}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-gray-400">👤</span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">{activity.action}</p>
-                    <p className="text-gray-400 text-sm">{activity.timestamp}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-gray-400 text-center py-4">
-                Нет недавней активности
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Быстрые действия */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-xl font-bold text-white mb-4">Быстрые действия</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <Button 
-              variant="secondary" 
-              className="h-24 flex flex-col items-center justify-center"
-              onClick={() => navigate('/admin/users')}
-            >
-              <span className="text-2xl mb-2">👥</span>
-              <span>Пользователи</span>
-            </Button>
-            <Button 
-              variant="secondary" 
-              className="h-24 flex flex-col items-center justify-center"
-              onClick={() => navigate('/admin/videos')}
-            >
-              <span className="text-2xl mb-2">🎬</span>
-              <span>Видео</span>
-            </Button>
-            <Button 
-              variant="secondary" 
-              className="h-24 flex flex-col items-center justify-center"
-              onClick={() => navigate('/admin/stats')}
-            >
-              <span className="text-2xl mb-2">📊</span>
-              <span>Статистика</span>
-            </Button>
-            <Button 
-              variant="secondary" 
-              className="h-24 flex flex-col items-center justify-center"
-              onClick={() => navigate('/admin/logs')}
-            >
-              <span className="text-2xl mb-2">📝</span>
-              <span>Логи</span>
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-    </div>
+</div>
   );
 };
 

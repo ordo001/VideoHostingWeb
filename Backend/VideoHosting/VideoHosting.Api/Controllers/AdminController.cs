@@ -405,6 +405,34 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
+    /// Получение последних загруженных видео
+    /// </summary>
+    /// <param name="count">Количество видео для получения</param>
+    /// <returns>Список последних видео</returns>
+    [HttpGet("recent-videos")]
+    public async Task<ActionResult<ApiResponseDto<List<RecentVideoDto>>>> GetRecentVideos([FromQuery] int count = 5)
+    {
+        try
+        {
+            var result = await _adminService.GetRecentVideosAsync(count);
+            
+            return Ok(new ApiResponseDto<List<RecentVideoDto>>
+            {
+                Success = true,
+                Data = result
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponseDto<List<RecentVideoDto>>
+            {
+                Success = false,
+                Error = "Произошла внутренняя ошибка сервера"
+            });
+        }
+    }
+
+    /// <summary>
     /// Получение логов действий администраторов
     /// </summary>
     /// <param name="request">Параметры запроса логов</param>
