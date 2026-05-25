@@ -69,6 +69,7 @@ builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.MinioService>();
 builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IVideoViewRepository, VideoViewRepository>();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {

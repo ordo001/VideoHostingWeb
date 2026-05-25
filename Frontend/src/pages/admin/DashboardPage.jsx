@@ -25,18 +25,14 @@ const DashboardPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Загрузка статистики...');
         const data = await adminService.getPlatformStats(selectedPeriod);
-        console.log('Полученные данные:', data);
         setStats(data);
         
         // Загружаем последние видео
         const videosData = await adminService.getRecentVideos(5);
-        console.log('Последние видео:', videosData);
         setRecentVideos(videosData || []);
         
         // Подготавливаем данные для графиков
-        // Если API не предоставляет эти данные, генерируем демонстрационные данные
         prepareChartsData(data);
       } catch (err) {
         console.error('Ошибка при загрузке данных:', err);
@@ -55,8 +51,6 @@ const DashboardPage = () => {
   
   // Функция для подготовки данных для графиков
   const prepareChartsData = (statsData) => {
-    console.log('Подготовка данных для графиков:', statsData);
-    
     // Определяем количество точек данных на основе выбранного периода
     const getPeriodDays = (period) => {
       switch (period) {
@@ -97,7 +91,7 @@ const DashboardPage = () => {
         date.setHours(today.getHours() - i);
         return date;
       } else if (period === 'all') {
-        // Для "всё время" смещаем по месяцам
+        // Для "всё времени" смещаем по месяцам
         date.setMonth(today.getMonth() - i);
         return date;
       } else {
@@ -143,16 +137,14 @@ const DashboardPage = () => {
     // Данные для графика роста пользователей
     const userGrowthData = [];
     
-    // Используем реальные данные из API, если они есть
+    // Используем реальные данные из API
     if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
-      console.log('Используем реальные данные userGrowth:', statsData.userGrowth);
-      
+      // Для "всё время" агрегируем данные по месяцам
       if (selectedPeriod === 'all') {
-        // Для "всё время" агрегируем данные по месяцам
         const monthlyData = {};
         
         statsData.userGrowth.forEach(item => {
-          const itemDate = normalizeDate(item.date || item.Date);
+          const itemDate = normalizeDate(item.date);
           const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
           
           if (!monthlyData[monthKey]) {
@@ -162,7 +154,7 @@ const DashboardPage = () => {
             };
           }
           
-          monthlyData[monthKey].count += (item.count || item.Count || 0);
+          monthlyData[monthKey].count += item.count;
         });
         
         // Создаем массив всех точек для периода
@@ -205,19 +197,19 @@ const DashboardPage = () => {
             // Для почасовых данных ищем по часу
             const hourPoint = pointDate.getHours();
             const pointData = statsData.userGrowth.find(item => {
-              const itemDate = normalizeDate(item.date || item.Date);
+              const itemDate = normalizeDate(item.date);
               return itemDate.getHours() === hourPoint && 
                      itemDate.toDateString() === pointDate.toDateString();
             });
-            value = pointData ? (pointData.count || pointData.Count || 0) : 0;
+            value = pointData ? pointData.count : 0;
           } else {
             // Для дневных данных ищем по дню
             const pointDateString = pointDate.toDateString();
             const pointData = statsData.userGrowth.find(item => {
-              const itemDate = normalizeDate(item.date || item.Date);
+              const itemDate = normalizeDate(item.date);
               return itemDate.toDateString() === pointDateString;
             });
-            value = pointData ? (pointData.count || pointData.Count || 0) : 0;
+            value = pointData ? pointData.count : 0;
           }
           
           userGrowthData.push({
@@ -226,38 +218,19 @@ const DashboardPage = () => {
           });
         });
       }
-    } else {
-      console.log('Нет данных userGrowth, генерируем демо-данные');
-      
-      // Если нет данных от API, генерируем демо-данные
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
-        
-        const value = Math.floor(Math.random() * 50) + Math.floor((statsData?.totalUsers || 100) / 100) + 10;
-        
-        userGrowthData.push({
-          label,
-          value
-        });
-      }
     }
     
     // Данные для круговой диаграммы популярности контента
-    // Используем популярные видео для создания категорий
-    let contentPopularityData;
+    let contentPopularityData = [];
     
     if (statsData?.popularVideos && statsData.popularVideos.length > 0) {
-      console.log('Используем реальные данные popularVideos:', statsData.popularVideos);
-      
       // Создаем категории на основе популярных видео
       const categories = {};
       
       statsData.popularVideos.forEach(video => {
         // Извлекаем категории из названий видео (упрощенная логика)
         let category = 'Другое';
-        const title = (video.title || video.Title || '').toLowerCase();
+        const title = (video.title || '').toLowerCase();
         
         if (title.includes('музык') || title.includes('music')) {
           category = 'Музыка';
@@ -271,7 +244,7 @@ const DashboardPage = () => {
           category = 'Развлечения';
         }
         
-        const views = video.views || video.Views || 0;
+        const views = video.views || 0;
         categories[category] = (categories[category] || 0) + views;
       });
       
@@ -280,17 +253,6 @@ const DashboardPage = () => {
         label,
         value
       }));
-    } else {
-      console.log('Нет данных popularVideos, используем демо-данные');
-      
-      // Если нет данных от API, используем демо-данные
-      contentPopularityData = [
-        { label: 'Музыка', value: 30 },
-        { label: 'Игры', value: 25 },
-        { label: 'Блоги', value: 20 },
-        { label: 'Образование', value: 15 },
-        { label: 'Развлечения', value: 10 }
-      ];
     }
     
     // Данные для графика роста просмотров
@@ -298,14 +260,12 @@ const DashboardPage = () => {
     
     // Используем реальные данные из activityGraph
     if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      console.log('Используем данные activityGraph для просмотров:', statsData.activityGraph);
-      
+      // Для "всё времени" агрегируем данные по месяцам
       if (selectedPeriod === 'all') {
-        // Для "всё времени" агрегируем данные по месяцам
         const monthlyData = {};
         
         statsData.activityGraph.forEach(item => {
-          const itemDate = normalizeDate(item.date || item.Date);
+          const itemDate = normalizeDate(item.date);
           const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
           
           if (!monthlyData[monthKey]) {
@@ -315,7 +275,7 @@ const DashboardPage = () => {
             };
           }
           
-          monthlyData[monthKey].views += (item.views || item.Views || 0);
+          monthlyData[monthKey].views += item.views;
         });
         
         // Создаем массив всех точек для периода
@@ -358,41 +318,25 @@ const DashboardPage = () => {
             // Для почасовых данных ищем по часу
             const hourPoint = pointDate.getHours();
             const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date || item.Date);
+              const itemDate = normalizeDate(item.date);
               return itemDate.getHours() === hourPoint && 
                      itemDate.toDateString() === pointDate.toDateString();
             });
-            value = pointData ? (pointData.views || pointData.Views || 0) : 0;
+            value = pointData ? pointData.views : 0;
           } else {
             // Для дневных данных ищем по дню
             const pointDateString = pointDate.toDateString();
             const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date || item.Date);
+              const itemDate = normalizeDate(item.date);
               return itemDate.toDateString() === pointDateString;
             });
-            value = pointData ? (pointData.views || pointData.Views || 0) : 0;
+            value = pointData ? pointData.views : 0;
           }
           
           viewsGrowthData.push({
             label,
             value
           });
-        });
-      }
-    } else {
-      console.log('Нет данных для просмотров, генерируем демо-данные');
-      
-      // Если нет данных от API, генерируем демо-данные
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
-        
-        const value = Math.floor(Math.random() * 1000) + 500;
-        
-        viewsGrowthData.push({
-          label,
-          value
         });
       }
     }
@@ -402,14 +346,12 @@ const DashboardPage = () => {
     
     // Используем реальные данные из activityGraph
     if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      console.log('Используем данные activityGraph для загрузки видео:', statsData.activityGraph);
-      
+      // Для "всё времени" агрегируем данные по месяцам
       if (selectedPeriod === 'all') {
-        // Для "всё времени" агрегируем данные по месяцам
         const monthlyData = {};
         
         statsData.activityGraph.forEach(item => {
-          const itemDate = normalizeDate(item.date || item.Date);
+          const itemDate = normalizeDate(item.date);
           const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
           
           if (!monthlyData[monthKey]) {
@@ -419,7 +361,7 @@ const DashboardPage = () => {
             };
           }
           
-          monthlyData[monthKey].uploads += (item.uploads || item.Uploads || 0);
+          monthlyData[monthKey].uploads += item.uploads;
         });
         
         // Создаем массив всех точек для периода
@@ -462,41 +404,25 @@ const DashboardPage = () => {
             // Для почасовых данных ищем по часу
             const hourPoint = pointDate.getHours();
             const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date || item.Date);
+              const itemDate = normalizeDate(item.date);
               return itemDate.getHours() === hourPoint && 
                      itemDate.toDateString() === pointDate.toDateString();
             });
-            value = pointData ? (pointData.uploads || pointData.Uploads || 0) : 0;
+            value = pointData ? pointData.uploads : 0;
           } else {
             // Для дневных данных ищем по дню
             const pointDateString = pointDate.toDateString();
             const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date || item.Date);
+              const itemDate = normalizeDate(item.date);
               return itemDate.toDateString() === pointDateString;
             });
-            value = pointData ? (pointData.uploads || pointData.Uploads || 0) : 0;
+            value = pointData ? pointData.uploads : 0;
           }
           
           videoUploadsData.push({
             label,
             value
           });
-        });
-      }
-    } else {
-      console.log('Нет данных для загрузки видео, генерируем демо-данные');
-      
-      // Если нет данных от API, генерируем демо-данные
-      for (let i = periodDays - 1; i >= 0; i--) {
-        const date = new Date(today);
-        const adjustedDate = getTimeOffset(i, selectedPeriod);
-        const label = getLabel(adjustedDate, selectedPeriod);
-        
-        const value = Math.floor(Math.random() * 10) + 1;
-        
-        videoUploadsData.push({
-          label,
-          value
         });
       }
     }
@@ -508,7 +434,6 @@ const DashboardPage = () => {
       contentPopularity: contentPopularityData
     };
     
-    console.log('Подготовленные данные для графиков:', chartsData);
     setChartsData(chartsData);
   };
   
@@ -554,7 +479,7 @@ const DashboardPage = () => {
         <p className="text-gray-400 mt-2">Обзор ключевых метрик платформы</p>
       </div>
       
-{/* Карточки статистики */}
+      {/* Карточки статистики */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Карточка пользователей */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
@@ -739,7 +664,7 @@ const DashboardPage = () => {
           </div>
         </div>
       
-{/* Графики */}
+      {/* Графики */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-white">Графики статистики</h2>
@@ -806,8 +731,6 @@ const DashboardPage = () => {
             height={300}
           />
         </div>
-     </div>
-     </div>
      </div>
   );
 };
