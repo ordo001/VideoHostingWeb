@@ -12,7 +12,6 @@ public class PlatformStatsDto
     public int NewLikes { get; set; }
     public UserGrowthDto[] UserGrowth { get; set; } = Array.Empty<UserGrowthDto>();
     public PopularVideoDto[] PopularVideos { get; set; } = Array.Empty<PopularVideoDto>();
-    public PopularVideoDto[] RecentVideos { get; set; } = Array.Empty<PopularVideoDto>(); // Новые видео для отображения в активности
     public ActivityGraphDto[] ActivityGraph { get; set; } = Array.Empty<ActivityGraphDto>();
     public UserGeographyDto[] UserGeography { get; set; } = Array.Empty<UserGeographyDto>();
 }

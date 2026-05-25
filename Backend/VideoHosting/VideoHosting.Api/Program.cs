@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using VideoHosting.Api.Middleware;
-using VideoHosting.Api.BackgroundServices;
 using Minio;
 using RabbitMQ.Client;
 
@@ -70,8 +69,6 @@ builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.MinioService>();
 builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
-builder.Services.AddScoped<DailyStatisticsService>();
-builder.Services.AddHostedService<VideoHosting.Api.BackgroundServices.DailyStatisticsBackgroundService>();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {

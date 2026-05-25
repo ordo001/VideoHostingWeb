@@ -15,7 +15,6 @@ public class VideoHostingDbContext : DbContext
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
     public DbSet<VideoReaction> VideoReactions { get; set; } = null!;
     public DbSet<AdminActionLog> AdminActionLogs { get; set; } = null!;
-    public DbSet<DailyStatistics> DailyStatistics { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -126,15 +125,6 @@ public class VideoHostingDbContext : DbContext
                 .WithMany(u => u.AdminActionLogs)
                 .HasForeignKey(l => l.AdminUserId)
                 .OnDelete(DeleteBehavior.Cascade);
-        });
-        
-        // DailyStatistics entity configuration
-        modelBuilder.Entity<DailyStatistics>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Date).IsUnique();
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW()");
         });
     }
 }

@@ -376,7 +376,33 @@ public class AdminController : ControllerBase
         }
     }
 
-    
+    /// <summary>
+    /// Получение статистики платформы
+    /// </summary>
+    /// <param name="period">Период для статистики (24h, 7d, 30d, all)</param>
+    /// <returns>Данные статистики</returns>
+    [HttpGet("stats")]
+    public async Task<ActionResult<ApiResponseDto<PlatformStatsDto>>> GetStats([FromQuery] string period = "30d")
+    {
+        try
+        {
+            var result = await _adminService.GetPlatformStatsAsync(period);
+            
+            return Ok(new ApiResponseDto<PlatformStatsDto>
+            {
+                Success = true,
+                Data = result
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponseDto<PlatformStatsDto>
+            {
+                Success = false,
+                Error = "Произошла внутренняя ошибка сервера"
+            });
+        }
+    }
 
     /// <summary>
     /// Получение логов действий администраторов
@@ -399,34 +425,6 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new ApiResponseDto<PaginatedResponseDto<AdminActionLogDto>>
-            {
-                Success = false,
-                Error = "Произошла внутренняя ошибка сервера"
-            });
-        }
-    }
-    
-    /// <summary>
-    /// Получение статистики платформы
-    /// </summary>
-    /// <param name="period">Период статистики (24h, 7d, 30d, all)</param>
-    /// <returns>Статистика платформы</returns>
-    [HttpGet("stats")]
-    public async Task<ActionResult<ApiResponseDto<PlatformStatsDto>>> GetPlatformStats([FromQuery] string period = "30d")
-    {
-        try
-        {
-            var result = await _adminService.GetPlatformStatsAsync(period);
-            
-            return Ok(new ApiResponseDto<PlatformStatsDto>
-            {
-                Success = true,
-                Data = result
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ApiResponseDto<PlatformStatsDto>
             {
                 Success = false,
                 Error = "Произошла внутренняя ошибка сервера"

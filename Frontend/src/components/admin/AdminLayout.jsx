@@ -26,6 +26,7 @@ const AdminLayout = ({ children }) => {
     { name: 'Панель', path: '/admin', icon: '📊' },
     { name: 'Пользователи', path: '/admin/users', icon: '👥' },
     { name: 'Видео', path: '/admin/videos', icon: '🎬' },
+    { name: 'Статистика', path: '/admin/stats', icon: '📈' },
     { name: 'Логи', path: '/admin/logs', icon: '📝' },
   ];
   

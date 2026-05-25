@@ -107,45 +107,6 @@ namespace VideoHosting.Infrastructure.Migrations
                     b.ToTable("Comments");
                 });
 
-            modelBuilder.Entity("VideoHosting.Domain.Entities.DailyStatistics", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("NewLikes")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NewUsers")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NewVideos")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NewViews")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Date")
-                        .IsUnique();
-
-                    b.ToTable("DailyStatistics");
-                });
-
             modelBuilder.Entity("VideoHosting.Domain.Entities.Subscription", b =>
                 {
                     b.Property<Guid>("Id")
