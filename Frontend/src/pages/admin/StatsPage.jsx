@@ -72,7 +72,9 @@ const StatsPage = () => {
         return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
       } else {
         // Для 7 дней показываем день недели
-        return date.toLocaleDateString('ru-RU', { weekday: 'short' });
+        // Получаем короткое имя дня недели на русском
+        const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+        return weekdays[date.getDay()];
       }
     };
     
@@ -82,14 +84,23 @@ const StatsPage = () => {
       if (period === '24h') {
         // Для 24 часов смещаем по часам
         date.setHours(today.getHours() - i);
+        // Установим минуты и секунды в 0 для точного сравнения по часам
+        date.setMinutes(0);
+        date.setSeconds(0);
+        date.setMilliseconds(0);
         return date;
       } else if (period === 'all') {
         // Для "всё времени" смещаем по месяцам
         date.setMonth(today.getMonth() - i);
+        // Установим день в 1 для точного сравнения по месяцам
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
         return date;
       } else {
         // Для остальных периодов смещаем по дням
         date.setDate(today.getDate() - i);
+        // Установим время в начало дня для точного сравнения по дням
+        date.setHours(0, 0, 0, 0);
         return date;
       }
     };
@@ -130,9 +141,9 @@ const StatsPage = () => {
     // Данные для графика роста пользователей
     const userGrowthData = [];
     
-    // Используем реальные данные из API
+// Используем реальные данные из API
     if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
-      // Для "всё время" агрегируем данные по месяцам
+      // Для "всё времени" агрегируем данные по месяцам
       if (timeRange === 'all') {
         const monthlyData = {};
         
@@ -146,6 +157,94 @@ const StatsPage = () => {
               count: 0
             };
           }
+          
+          monthlyData[monthKey].count += item.count;
+        });
+        
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, timeRange);
+          periodPoints.push(pointDate);
+        }
+        
+        // Заполняем данные для каждого периода
+        periodPoints.forEach(pointDate => {
+          const label = getLabel(pointDate, timeRange);
+          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
+          
+          const pointData = monthlyData[monthKey];
+          const value = pointData ? pointData.count : 0;
+          
+          userGrowthData.push({
+            label,
+            value
+          });
+        });
+      } else {
+        // Для остальных периодов
+        
+        // Создаем массив всех точек для периода
+        const periodPoints = [];
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const pointDate = getTimeOffset(i, timeRange);
+          periodPoints.push(pointDate);
+        }
+        
+        // Для 24 часов агрегируем данные по часам
+        if (timeRange === '24h') {
+          const hourlyData = {};
+          
+          // Сначала агрегируем все данные по часам
+          statsData.userGrowth.forEach(item => {
+            const itemDate = normalizeDate(item.date);
+            // Создаем ключ для часа
+            const hourKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}-${itemDate.getDate()}-${itemDate.getHours()}`;
+            
+            if (!hourlyData[hourKey]) {
+              hourlyData[hourKey] = {
+                date: new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), itemDate.getHours()),
+                count: 0
+              };
+            }
+            
+            hourlyData[hourKey].count += item.count;
+          });
+          
+          // Заполняем данные для каждого часа в периоде
+          periodPoints.forEach(pointDate => {
+            const label = getLabel(pointDate, timeRange);
+            // Создаем ключ для поиска по часу
+            const hourKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}-${pointDate.getDate()}-${pointDate.getHours()}`;
+            
+            const pointData = hourlyData[hourKey];
+            const value = pointData ? pointData.count : 0;
+            
+            userGrowthData.push({
+              label,
+              value
+            });
+          });
+        } else {
+          // Для дневных данных ищем по дням
+          periodPoints.forEach(pointDate => {
+            const label = getLabel(pointDate, timeRange);
+            
+            const pointDateString = pointDate.toDateString();
+            const pointData = statsData.userGrowth.find(item => {
+              const itemDate = normalizeDate(item.date);
+              return itemDate.toDateString() === pointDateString;
+            });
+            const value = pointData ? pointData.count : 0;
+            
+            userGrowthData.push({
+              label,
+              value
+            });
+          });
+        }
+      }
+    }
           
           monthlyData[monthKey].count += item.count;
         });
@@ -301,36 +400,58 @@ const StatsPage = () => {
           periodPoints.push(pointDate);
         }
         
-        // Заполняем данные для каждого периода
-        periodPoints.forEach(pointDate => {
-          const label = getLabel(pointDate, timeRange);
+        // Для 24 часов агрегируем данные по часам
+        if (timeRange === '24h') {
+          const hourlyData = {};
           
-          // Ищем данные за этот период в activityGraph
-          let value = 0;
-          if (timeRange === '24h') {
-            // Для почасовых данных ищем по часу
-            const hourPoint = pointDate.getHours();
-            const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date);
-              return itemDate.getHours() === hourPoint && 
-                     itemDate.toDateString() === pointDate.toDateString();
+          // Сначала агрегируем все данные по часам
+          statsData.activityGraph.forEach(item => {
+            const itemDate = normalizeDate(item.date);
+            // Создаем ключ для часа
+            const hourKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}-${itemDate.getDate()}-${itemDate.getHours()}`;
+            
+            if (!hourlyData[hourKey]) {
+              hourlyData[hourKey] = {
+                date: new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), itemDate.getHours()),
+                views: 0
+              };
+            }
+            
+            hourlyData[hourKey].views += item.views;
+          });
+          
+          // Заполняем данные для каждого часа в периоде
+          periodPoints.forEach(pointDate => {
+            const label = getLabel(pointDate, timeRange);
+            // Создаем ключ для поиска по часу
+            const hourKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}-${pointDate.getDate()}-${pointDate.getHours()}`;
+            
+            const pointData = hourlyData[hourKey];
+            const value = pointData ? pointData.views : 0;
+            
+            viewsGrowthData.push({
+              label,
+              value
             });
-            value = pointData ? pointData.views : 0;
-          } else {
-            // Для дневных данных ищем по дню
+          });
+        } else {
+          // Для дневных данных ищем по дням
+          periodPoints.forEach(pointDate => {
+            const label = getLabel(pointDate, timeRange);
+            
             const pointDateString = pointDate.toDateString();
             const pointData = statsData.activityGraph.find(item => {
               const itemDate = normalizeDate(item.date);
               return itemDate.toDateString() === pointDateString;
             });
-            value = pointData ? pointData.views : 0;
-          }
-          
-          viewsGrowthData.push({
-            label,
-            value
+            const value = pointData ? pointData.views : 0;
+            
+            viewsGrowthData.push({
+              label,
+              value
+            });
           });
-        });
+        }
       }
     }
     
@@ -387,36 +508,58 @@ const StatsPage = () => {
           periodPoints.push(pointDate);
         }
         
-        // Заполняем данные для каждого периода
-        periodPoints.forEach(pointDate => {
-          const label = getLabel(pointDate, timeRange);
+        // Для 24 часов агрегируем данные по часам
+        if (timeRange === '24h') {
+          const hourlyData = {};
           
-          // Ищем данные за этот период в activityGraph
-          let value = 0;
-          if (timeRange === '24h') {
-            // Для почасовых данных ищем по часу
-            const hourPoint = pointDate.getHours();
-            const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date);
-              return itemDate.getHours() === hourPoint && 
-                     itemDate.toDateString() === pointDate.toDateString();
+          // Сначала агрегируем все данные по часам
+          statsData.activityGraph.forEach(item => {
+            const itemDate = normalizeDate(item.date);
+            // Создаем ключ для часа
+            const hourKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}-${itemDate.getDate()}-${itemDate.getHours()}`;
+            
+            if (!hourlyData[hourKey]) {
+              hourlyData[hourKey] = {
+                date: new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), itemDate.getHours()),
+                uploads: 0
+              };
+            }
+            
+            hourlyData[hourKey].uploads += item.uploads;
+          });
+          
+          // Заполняем данные для каждого часа в периоде
+          periodPoints.forEach(pointDate => {
+            const label = getLabel(pointDate, timeRange);
+            // Создаем ключ для поиска по часу
+            const hourKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}-${pointDate.getDate()}-${pointDate.getHours()}`;
+            
+            const pointData = hourlyData[hourKey];
+            const value = pointData ? pointData.uploads : 0;
+            
+            videoUploadsData.push({
+              label,
+              value
             });
-            value = pointData ? pointData.uploads : 0;
-          } else {
-            // Для дневных данных ищем по дню
+          });
+        } else {
+          // Для дневных данных ищем по дням
+          periodPoints.forEach(pointDate => {
+            const label = getLabel(pointDate, timeRange);
+            
             const pointDateString = pointDate.toDateString();
             const pointData = statsData.activityGraph.find(item => {
               const itemDate = normalizeDate(item.date);
               return itemDate.toDateString() === pointDateString;
             });
-            value = pointData ? pointData.uploads : 0;
-          }
-          
-          videoUploadsData.push({
-            label,
-            value
+            const value = pointData ? pointData.uploads : 0;
+            
+            videoUploadsData.push({
+              label,
+              value
+            });
           });
-        });
+        }
       }
     }
     
