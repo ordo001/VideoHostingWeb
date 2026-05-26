@@ -14,6 +14,7 @@ const LineChart = ({ data, title, color = '#4F46E5', height = 300 }) => {
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     
     // Очищаем canvas
@@ -25,7 +26,7 @@ const LineChart = ({ data, title, color = '#4F46E5', height = 300 }) => {
     const graphHeight = rect.height - (padding * 2);
     
     // Находим максимальное значение для масштабирования
-    const maxValue = Math.max(...data.map(item => item.value));
+      const maxValue = Math.max(...data.map(item => item.value), 1);
     
     // Функция для преобразования значения в координату Y
     const valueToY = (value) => {
@@ -33,9 +34,13 @@ const LineChart = ({ data, title, color = '#4F46E5', height = 300 }) => {
     };
     
     // Функция для преобразования индекса в координату X
-    const indexToX = (index) => {
-      return padding + (index / (data.length - 1)) * graphWidth;
-    };
+      const indexToX = (index) => {
+          if (data.length <= 1) {
+              return padding + graphWidth / 2;
+          }
+
+          return padding + (index / (data.length - 1)) * graphWidth;
+      };
     
     // Рисуем сетку
     ctx.strokeStyle = '#374151';
