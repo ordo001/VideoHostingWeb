@@ -76,7 +76,7 @@ const DashboardPage = () => {
         return date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' });
       } else if (period === '30d') {
         // Для 30 дней показываем день и месяц
-        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
       } else {
         // Для 7 дней показываем день недели
         // Получаем короткое имя дня недели на русском
@@ -113,37 +113,31 @@ const DashboardPage = () => {
     };
     
     // Вспомогательная функция для нормализации даты из данных
-    const normalizeDate = (dateStr) => {
-      // Пытаемся распарсить дату различными способами
-      try {
-        // Если это уже объект Date
-        if (dateStr instanceof Date) {
-          return new Date(dateStr);
-        }
-        
-        // Если это строка, пробуем стандартный парсинг
-        if (typeof dateStr === 'string') {
-          // Пробуем создать дату напрямую
-          let date = new Date(dateStr);
-          if (!isNaN(date.getTime())) {
-            return date;
+      const normalizeDate = (dateStr) => {
+          try {
+              let date;
+
+              if (dateStr instanceof Date) {
+                  date = new Date(dateStr);
+              } else if (typeof dateStr === 'string') {
+                  const formatted = dateStr
+                      .replace(' ', 'T')
+                      .replace(/(\+\d{2})(\d{2})$/, '$1:$2');
+
+                  date = new Date(formatted);
+              } else {
+                  date = new Date();
+              }
+
+              // ВРЕМЕННЫЙ ФИКС: отнимаем 1 день
+              date.setDate(date.getDate() + 1);
+
+              return date;
+          } catch (e) {
+              console.warn('Ошибка парсинга даты:', dateStr, e);
+              return new Date();
           }
-          
-          // Если стандартный парсинг не удался, попробуем другие форматы
-          // Например, если дата в формате "2023-12-01T00:00:00"
-          date = new Date(dateStr.replace(' ', 'T'));
-          if (!isNaN(date.getTime())) {
-            return date;
-          }
-        }
-        
-        // Если ничего не помогло, возвращаем новую дату
-        return new Date();
-      } catch (e) {
-        console.warn('Ошибка при парсинге даты:', dateStr, e);
-        return new Date();
-      }
-    };
+      };
     
     // Данные для графика роста пользователей
     const userGrowthData = [];
@@ -250,72 +244,6 @@ const DashboardPage = () => {
             });
           });
         }
-      }
-    }
-          
-          monthlyData[monthKey].count += item.count;
-        });
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
-        }
-        
-        // Заполняем данные для каждого периода
-        periodPoints.forEach(pointDate => {
-          const label = getLabel(pointDate, selectedPeriod);
-          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
-          
-          const pointData = monthlyData[monthKey];
-          const value = pointData ? pointData.count : 0;
-          
-          userGrowthData.push({
-            label,
-            value
-          });
-        });
-      } else {
-        // Для остальных периодов
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
-        }
-        
-        // Заполняем данные для каждого периода
-        periodPoints.forEach(pointDate => {
-          const label = getLabel(pointDate, selectedPeriod);
-          
-          // Ищем данные за этот период в userGrowth
-          let value = 0;
-          if (selectedPeriod === '24h') {
-            // Для почасовых данных ищем по часу
-            const hourPoint = pointDate.getHours();
-            const pointData = statsData.userGrowth.find(item => {
-              const itemDate = normalizeDate(item.date);
-              return itemDate.getHours() === hourPoint && 
-                     itemDate.toDateString() === pointDate.toDateString();
-            });
-            value = pointData ? pointData.count : 0;
-          } else {
-            // Для дневных данных ищем по дню
-            const pointDateString = pointDate.toDateString();
-            const pointData = statsData.userGrowth.find(item => {
-              const itemDate = normalizeDate(item.date);
-              return itemDate.toDateString() === pointDateString;
-            });
-            value = pointData ? pointData.count : 0;
-          }
-          
-          userGrowthData.push({
-            label,
-            value
-          });
-        });
       }
     }
     
@@ -712,7 +640,6 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
-      
       {/* Графики и активность */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Последние загруженные видео */}
@@ -738,7 +665,7 @@ const DashboardPage = () => {
                   <div className="w-20 h-14 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                     {video.thumbnailUrl ? (
                       <img 
-                        src={video.thumbnailUrl} 
+                        src={`http://localhost:9000/${video.thumbnailUrl}`} 
                         alt={video.title}
                         className="w-full h-full object-cover"
                       />
@@ -806,7 +733,9 @@ const DashboardPage = () => {
             </Button>
           </div>
         </div>
-      
+      </div>
+        <br/>
+        <br/>
       {/* Графики */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
@@ -838,42 +767,48 @@ const DashboardPage = () => {
             </button>
           </div>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* График роста пользователей */}
-          <LineChart
-            data={chartsData.userGrowth}
-            title="Рост пользователей"
-            color="#3B82F6"
-            height={300}
-          />
-          
-          {/* График роста просмотров */}
-          <LineChart
-            data={chartsData.viewsGrowth}
-            title="Рост просмотров"
-            color="#10B981"
-            height={300}
-          />
-        </div>
-        
-        {/* График загрузки видео */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* График роста загрузки видео */}
-          <LineChart
-            data={chartsData.videoUploads}
-            title="Рост загрузки видео"
-            color="#F59E0B"
-            height={300}
-          />
-          
-          {/* Популярность контента */}
-          <PieChart
-            data={chartsData.contentPopularity}
-            title="Популярность контента"
-            height={300}
-          />
-        </div>
+
+          <div className="space-y-6">
+              {/* График роста пользователей */}
+              <div className="w-full">
+                  <LineChart
+                      data={chartsData.userGrowth}
+                      title="Рост пользователей"
+                      color="#3B82F6"
+                      height={300}
+                  />
+              </div>
+
+              {/* График роста просмотров */}
+              <div className="w-full">
+                  <LineChart
+                      data={chartsData.viewsGrowth}
+                      title="Рост просмотров"
+                      color="#10B981"
+                      height={300}
+                  />
+              </div>
+
+              {/* График роста загрузки видео */}
+              <div className="w-full">
+                  <LineChart
+                      data={chartsData.videoUploads}
+                      title="Рост загрузки видео"
+                      color="#F59E0B"
+                      height={300}
+                  />
+              </div>
+
+              {/* Популярность контента */}
+              <div className="w-full">
+                  <PieChart
+                      data={chartsData.contentPopularity}
+                      title="Популярность контента"
+                      height={300}
+                  />
+              </div>
+          </div>
+     </div>
      </div>
   );
 };
