@@ -235,7 +235,7 @@ const fetchUsers = async () => {
                         <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
                             {user.avatarUrl ? (
                                 <img
-                                    src={user.avatarUrl}
+                                    src={`http://localhost:9000/${user.avatarUrl}`}
                                     alt={user.userName}
                                     className="h-10 w-10 rounded-full object-cover"
                                 />

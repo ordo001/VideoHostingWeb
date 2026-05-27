@@ -56,14 +56,16 @@ public class FFmpegVideoProcessor
     
     public async Task<string> DownloadVideoFromMinioAsync(string videoUrl, Func<string, Task<Stream>> downloadFunc)
     {
-        var tempVideoPath = Path.Combine(_tempDirectory, $"{Guid.NewGuid()}.mp4");
+        var processingDir = Path.Combine(_tempDirectory, Guid.NewGuid().ToString());
+        Directory.CreateDirectory(processingDir);
+        var tempVideoPath = Path.Combine(processingDir, "source.mp4");
         
         try
         {
             // Скачиваем видео из MinIO
             using var videoStream = await downloadFunc(videoUrl);
             
-            // Проверяем, что поток не пустой
+            // Проверяем, что поток не пустойtempVideoPath 
             if (videoStream == null || videoStream.Length == 0)
             {
                 throw new InvalidOperationException("Получен пустой поток видео из MinIO");

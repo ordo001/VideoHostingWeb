@@ -80,11 +80,11 @@ function App() {
 
   return (
     <Router>
-      <div className="App min-h-screen bg-black text-white">
+     <div className="App min-h-screen bg-black text-white flex flex-col">
         <Header />
         <Notification />
-        
-        <main className="container mx-auto px-4 py-8">
+
+        <main className="container mx-auto px-4 py-8 flex-1">
           <Routes>
             <Route path="/" element={
               <div>

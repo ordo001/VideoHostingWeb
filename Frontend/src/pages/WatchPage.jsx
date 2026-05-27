@@ -630,7 +630,7 @@ const WatchPage = () => {
                     {user ? (
                       user.avatar ? (
                         <img 
-                          src={user.avatar} 
+                          src={`http://localhost:9000/${user.avatar}`} 
                           alt={user.name} 
                           className="w-full h-full rounded-full object-cover"
                         />
@@ -682,7 +682,7 @@ const WatchPage = () => {
                         <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
                           {comment.author?.avatar ? (
                             <img 
-                              src={comment.author.avatar} 
+                              src={`http://localhost:9000/${comment.author.avatar}`} 
                               alt={comment.author.name} 
                               className="w-full h-full rounded-full object-cover"
                             />
@@ -735,7 +735,7 @@ const WatchPage = () => {
           </div>
           
           {/* Сайдбар с рекомендациями */}
-          <div className="lg:w-1/3">
+          {/*<div className="lg:w-1/3">
             <h3 className="text-lg font-bold mb-4">Рекомендуемые видео</h3>
             
             <div className="space-y-4">
@@ -756,7 +756,7 @@ const WatchPage = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </div>*/}
         </div>
       </div>
     </div>

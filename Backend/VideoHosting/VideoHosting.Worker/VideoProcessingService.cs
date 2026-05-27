@@ -225,7 +225,14 @@ public class VideoProcessingService : IHostedService
             {
                 // Очищаем временные файлы
                 _videoProcessor.CleanupTempFiles(tempProcessingDir);
-                _videoProcessor.CleanupTempFiles(Path.GetDirectoryName(tempVideoPath)!);
+
+                // Удаляем только временную папку конкретного видео
+                var sourceVideoDir = Path.GetDirectoryName(tempVideoPath);
+
+                if (!string.IsNullOrEmpty(sourceVideoDir))
+                {
+                    _videoProcessor.CleanupTempFiles(sourceVideoDir);
+                }
             }
         }
         catch (Exception ex)

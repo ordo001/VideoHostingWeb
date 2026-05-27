@@ -174,7 +174,7 @@ const LogsPage = () => {
                         <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
                             {log.adminAvatarUrl ? (
                                 <img
-                                    src={log.adminAvatarUrl}
+                                    src={`http://localhost:9000/${log.adminAvatarUrl}`}
                                     alt={log.adminName}
                                     className="h-10 w-10 rounded-full object-cover"
                                 />
