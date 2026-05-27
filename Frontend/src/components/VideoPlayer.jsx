@@ -173,6 +173,26 @@ const VideoPlayer = ({
     };
   };
 
+  // Функция для автоматического выбора начального качества
+  const getInitialQualityLevel = (levels) => {
+    // Определяем качество на основе размера экрана
+    const screenWidth = window.screen.width;
+    
+    if (screenWidth <= 640) {
+      // Для мобильных устройств выбираем 360p
+      const level360 = levels.find(l => l.height === 360);
+      return level360 ? level360.levelIndex : -1;
+    } else if (screenWidth <= 1280) {
+      // Для средних экранов выбираем 720p
+      const level720 = levels.find(l => l.height === 720);
+      return level720 ? level720.levelIndex : -1;
+    } else {
+      // Для больших экранов выбираем 1080p
+      const level1080 = levels.find(l => l.height === 1080);
+      return level1080 ? level1080.levelIndex : -1;
+    }
+  };
+
   // Функция для предварительной загрузки мастер-плейлиста
   const preloadMasterPlaylist = async (hlsInstance) => {
     try {
@@ -262,15 +282,27 @@ const VideoPlayer = ({
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
         
-        // Получаем доступные уровни качества
-        const levels = hls.levels.map(level => ({
-          height: level.height,
-          bitrate: level.bitrate,
-          name: `${level.height}p`,
-          levelIndex: hls.levels.indexOf(level)
-        }));
+        // Получаем доступные уровни качества и фильтруем только нужные
+        const filteredLevels = hls.levels
+          .map((level, index) => ({
+            height: level.height,
+            bitrate: level.bitrate,
+            name: `${level.height}p`,
+            levelIndex: index
+          }))
+          .filter(level => [360, 720, 1080].includes(level.height))
+          .sort((a, b) => a.height - b.height);
+
+        setAvailableLevels(filteredLevels);
         
-        setAvailableLevels(levels);
+        // Автоматический выбор начального качества
+        if (filteredLevels.length > 0) {
+          const initialLevel = getInitialQualityLevel(filteredLevels);
+          if (initialLevel !== -1) {
+            hls.currentLevel = initialLevel;
+            setCurrentLevel(initialLevel);
+          }
+        }
         
         if (autoPlay) {
           video.play().catch(err => {
@@ -317,10 +349,8 @@ const VideoPlayer = ({
   // Обработчик для отображения названия текущего качества
   const getQualityText = () => {
     if (currentLevel === -1) return 'Авто';
-    if (currentLevel < availableLevels.length) {
-      return availableLevels[currentLevel].name;
-    }
-    return 'Авто';
+    const currentLevelObj = availableLevels.find(level => level.levelIndex === currentLevel);
+    return currentLevelObj ? currentLevelObj.name : 'Авто';
   };
 
   return () => {
