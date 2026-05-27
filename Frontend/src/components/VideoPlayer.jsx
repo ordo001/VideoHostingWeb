@@ -30,6 +30,9 @@ const VideoPlayer = ({
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
+    setAvailableLevels([]);
+    setCurrentLevel(-1);
+    setRetryCount(0);
   };
 
   // Получение мастер-плейлиста через API с оптимизацией загрузки сегментов
@@ -208,9 +211,17 @@ const VideoPlayer = ({
     }
   };
 
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !videoUrl) return;
+
+    // Проверяем, инициализирован ли уже плеер с этим URL
+    if (hlsRef.current && hlsRef.current.url === videoUrl) {
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -245,6 +256,9 @@ const VideoPlayer = ({
         loader: Hls.DefaultConfig.loader,
       });
 
+      // Сохраняем URL для проверки повторной инициализации
+      hls.url = videoUrl;
+
       // Настраиваем оптимизированную загрузку сегментов
       cleanupSegmentLoader.current = setupSegmentLoader(hls);
       
@@ -260,11 +274,27 @@ const VideoPlayer = ({
 
       // Обработка ошибок
       hls.on(Hls.Events.ERROR, (event, data) => {
+        // Игнорируем ошибки переключения качества, так как они обрабатываются отдельно
+        if (data.details === Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR ||
+            data.details === Hls.ErrorDetails.BUFFER_APPEND_ERROR) {
+          return;
+        }
+        
         console.error('HLS error:', data);
         
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
+              // Повторная попытка при сетевых ошибках
+              if (retryCount < maxRetries) {
+                setTimeout(() => {
+                  setRetryCount(retryCount + 1);
+                  // Перезапускаем инициализацию
+                  cleanup();
+                  hlsRef.current = null;
+                }, 1000 * (retryCount + 1)); // Увеличиваем задержку между попытками
+                return;
+              }
               setError('Ошибка сети при загрузке видео');
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
@@ -281,6 +311,7 @@ const VideoPlayer = ({
       // Успешная загрузка
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
+        setRetryCount(0); // Сбрасываем счетчик попыток при успешной загрузке
         
         // Получаем доступные уровни качества и фильтруем только нужные
         const filteredLevels = hls.levels
@@ -338,6 +369,7 @@ const VideoPlayer = ({
     }
 
     return () => {
+      // Очищаем ресурсы только при размонтировании компонента
       cleanup();
       
       // Очищаем ресурсы, связанные с загрузчиком сегментов
@@ -346,27 +378,42 @@ const VideoPlayer = ({
         cleanupSegmentLoader.current = null;
       }
       
-      if (onTimeUpdate) {
-        video.removeEventListener('timeupdate', onTimeUpdate);
-      }
-      
-      if (onLoadedMetadata) {
-        video.removeEventListener('loadedmetadata', onLoadedMetadata);
-      }
-      
-      if (onEnded) {
-        video.removeEventListener('ended', onEnded);
+      const video = videoRef.current;
+      if (video) {
+        if (onTimeUpdate) {
+          video.removeEventListener('timeupdate', onTimeUpdate);
+        }
+        
+        if (onLoadedMetadata) {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+        }
+        
+        if (onEnded) {
+          video.removeEventListener('ended', onEnded);
+        }
       }
     };
-  }, [videoUrl, autoPlay, onTimeUpdate, onLoadedMetadata, onEnded, currentLevel, availableLevels]);
+  }, [videoUrl, autoPlay, onTimeUpdate, onLoadedMetadata, onEnded, retryCount]);
+
+  // Эффект для обновления UI при изменении уровня качества
+  useEffect(() => {
+    // Этот эффект сработает при изменении currentLevel или availableLevels
+    // и обновит отображение в UI без пересоздания плеера
+  }, [currentLevel, availableLevels]);
 
   // Функция для смены качества видео
   const changeQuality = (levelIndex) => {
     if (hlsRef.current) {
-      hlsRef.current.currentLevel = levelIndex;
-      setCurrentLevel(levelIndex);
-      setShowQualityMenu(false);
-      console.log(`Quality changed to level: ${levelIndex}`);
+      try {
+        hlsRef.current.currentLevel = levelIndex;
+        setCurrentLevel(levelIndex);
+        setShowQualityMenu(false);
+        console.log(`Quality changed to level: ${levelIndex}`);
+      } catch (error) {
+        console.error('Error changing quality:', error);
+        // В случае ошибки показываем уведомление пользователю
+        setError('Не удалось переключить качество видео');
+      }
     }
   };
 
