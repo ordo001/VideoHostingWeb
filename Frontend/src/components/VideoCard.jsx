@@ -117,24 +117,27 @@ const VideoCard = ({
       </div>
       
       {/* Video info */}
-      <div className="p-3">
-        <h3 className="text-white font-medium line-clamp-2 mb-2 text-left">
-          {title || 'Без названия'}
-        </h3>
-        
-        <div className="flex text-gray-400 text-sm">
-          <span 
-            className="cursor-pointer hover:text-blue-400 transition-colors"
-            onClick={handleAuthorClick}
-          >
-            {author?.name || author?.Name || 'Неизвестный автор'}
-          </span>
-          <span className="mx-1">•</span>
-          <span>{formatViews(views || 0)} просмотров</span>
-          <span className="mx-1">•</span>
-          <span>{formatDate(createdAt)}</span>
+        <div className="p-3">
+            {/* Title */}
+            <h3 className="text-white font-medium truncate mb-2 text-left">
+                {title || 'Без названия'}
+            </h3>
+
+            {/* Author */}
+            <div
+                className="text-gray-400 text-sm mb-1 cursor-pointer hover:text-blue-400 transition-colors text-left"
+                onClick={handleAuthorClick}
+            >
+                {author?.name || author?.Name || 'Неизвестный автор'}
+            </div>
+
+            {/* Views + Date */}
+            <div className="flex items-center text-gray-500 text-sm">
+                <span>{formatViews(views || 0)} просмотров</span>
+                <span className="mx-1">•</span>
+                <span>{formatDate(createdAt)}</span>
+            </div>
         </div>
-      </div>
     </motion.div>
   );
 };

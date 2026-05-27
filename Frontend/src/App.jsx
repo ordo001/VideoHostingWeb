@@ -21,7 +21,6 @@ import {
   DashboardPage,
   UsersPage,
   VideosPage,
-  StatsPage,
   LogsPage
 } from './pages/admin';
 import videoService from './services/videoService';
@@ -81,11 +80,11 @@ function App() {
 
   return (
     <Router>
-      <div className="App min-h-screen bg-black text-white">
+     <div className="App min-h-screen bg-black text-white flex flex-col">
         <Header />
         <Notification />
-        
-        <main className="container mx-auto px-4 py-8">
+
+        <main className="container mx-auto px-4 py-8 flex-1">
           <Routes>
             <Route path="/" element={
               <div>
@@ -176,7 +175,7 @@ function App() {
             <Route path="/admin" element={<AdminLayout><DashboardPage /></AdminLayout>} />
             <Route path="/admin/users" element={<AdminLayout><UsersPage /></AdminLayout>} />
             <Route path="/admin/videos" element={<AdminLayout><VideosPage /></AdminLayout>} />
-            <Route path="/admin/stats" element={<AdminLayout><StatsPage /></AdminLayout>} />
+            
             <Route path="/admin/logs" element={<AdminLayout><LogsPage /></AdminLayout>} />
             
             <Route path="/loading" element={

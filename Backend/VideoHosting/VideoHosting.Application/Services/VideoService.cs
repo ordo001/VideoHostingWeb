@@ -14,7 +14,8 @@ public class VideoService : IVideoService
     private readonly IAdminActionLogRepository _adminActionLogRepository;
     private readonly IMinioService _minioService;
     private readonly IRabbitMqService _rabbitMqService;
-    private ISubscriptionRepository _subscriptionRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
+    private readonly IVideoViewRepository _videoViewRepository;
     private static readonly HashSet<string> ValidReactionTypes = new() { "Like", "Dislike" };
     private static readonly List<string> SupportedResolutions = new() { "360p", "480p", "720p", "1080p" };
 
@@ -24,7 +25,9 @@ public class VideoService : IVideoService
         IUserRepository userRepository,
         IAdminActionLogRepository adminActionLogRepository,
         IMinioService minioService,
-        IRabbitMqService rabbitMqService, ISubscriptionRepository subscriptionRepository)
+        IRabbitMqService rabbitMqService,
+        ISubscriptionRepository subscriptionRepository,
+        IVideoViewRepository videoViewRepository)
     {
         _videoRepository = videoRepository;
         _videoReactionRepository = videoReactionRepository;
@@ -33,6 +36,7 @@ public class VideoService : IVideoService
         _minioService = minioService;
         _rabbitMqService = rabbitMqService;
         _subscriptionRepository = subscriptionRepository;
+        _videoViewRepository = videoViewRepository;
     }
 
     public async Task<VideoDto?> GetVideoByIdAsync(Guid id)
@@ -365,5 +369,29 @@ public class VideoService : IVideoService
         }
 
         return videoDtos;
+    }
+    
+    public async Task IncrementViewCountAsync(Guid videoId, Guid? userId, string ipAddress)
+    {
+        // Получаем видео
+        var video = await _videoRepository.GetByIdAsync(videoId);
+        if (video == null)
+            throw new InvalidOperationException("Видео не найдено");
+
+        // Увеличиваем счетчик просмотров
+        video.Views += 1;
+        video.UpdatedAt = DateTime.UtcNow;
+        await _videoRepository.UpdateAsync(video);
+
+        // Создаем запись о просмотре
+        var videoView = new VideoView
+        {
+            VideoId = videoId,
+            UserId = userId,
+            ViewedAt = DateTime.UtcNow,
+            IpAddress = ipAddress
+        };
+        
+        await _videoViewRepository.CreateAsync(videoView);
     }
 }

@@ -13,10 +13,17 @@ public class User
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     
+    // Admin-related fields
+    public bool IsBanned { get; set; }
+    public DateTime? BannedUntil { get; set; }
+    public string? BanReason { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    
     // Navigation properties
     public ICollection<Video> Videos { get; set; } = new List<Video>();
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
     public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
     public ICollection<Subscription> Subscribers { get; set; } = new List<Subscription>();
     public ICollection<VideoReaction> VideoReactions { get; set; } = new List<VideoReaction>();
+    public ICollection<AdminActionLog> AdminActionLogs { get; set; } = new List<AdminActionLog>();
 }

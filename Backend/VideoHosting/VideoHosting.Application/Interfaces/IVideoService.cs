@@ -16,6 +16,9 @@ public interface IVideoService
     // Admin functions
     Task DeleteVideoByAdminAsync(Guid id, Guid adminUserId, string reason);
     
+    // Video views
+    Task IncrementViewCountAsync(Guid videoId, Guid? userId, string ipAddress);
+    
     // Video reactions
     Task<VideoReactionDto?> GetUserReactionAsync(Guid userId, Guid videoId);
     Task AddOrUpdateReactionAsync(Guid userId, Guid videoId, string reactionType);

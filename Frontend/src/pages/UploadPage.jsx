@@ -19,7 +19,7 @@ const UploadPage = () => {
   
   const handleUploadSuccess = (video) => {
     // После успешной загрузки перенаправляем на страницу видео
-    navigate(`/watch/${video.id}`);
+    navigate(`/`);
   };
   
   const handleCancel = () => {

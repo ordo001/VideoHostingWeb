@@ -254,17 +254,28 @@ public class VideosController : ControllerBase
     {
         try
         {
-            var video = await _videoService.GetVideoByIdAsync(id);
-            if (video == null)
+            // Получение ID пользователя из токена (если авторизован)
+            Guid? userId = null;
+            if (User.Identity.IsAuthenticated)
             {
-                return NotFound(new { error = new { message = "Видео не найдено" } });
+                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var parsedUserId))
+                {
+                    userId = parsedUserId;
+                }
             }
+            
+            // Получение IP адреса пользователя
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
 
-            // Увеличение счетчика просмотров
-            video.Views += 1;
-            await _videoService.UpdateVideoAsync(video);
+            // Увеличение счетчика просмотров и создание записи
+            await _videoService.IncrementViewCountAsync(id, userId, ipAddress);
 
             return Ok(true);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = new { message = ex.Message } });
         }
         catch (Exception ex)
         {

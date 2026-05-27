@@ -61,6 +61,13 @@ const Header = () => {
             <div className="flex items-center space-x-2">
               {isAuthenticated ? (
                 <>
+                  {user?.isAdmin && (
+                    <Link to="/admin">
+                      <Button variant="secondary" size="sm">
+                        Админка
+                      </Button>
+                    </Link>
+                  )}
                   <Link to="/upload">
                     <Button variant="primary" size="sm">
                       Загрузить

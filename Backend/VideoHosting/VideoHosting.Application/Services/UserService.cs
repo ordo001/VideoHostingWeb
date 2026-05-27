@@ -84,6 +84,7 @@ public class UserService : IUserService
         user.Description = userDto.Description;
         user.IsAdmin = userDto.IsAdmin;
         user.UpdatedAt = DateTime.UtcNow;
+        user.BannerUrl = userDto.BannerUrl;
 
         await _userRepository.UpdateAsync(user);
     }
@@ -101,6 +102,7 @@ public class UserService : IUserService
             Name = user.Name,
             Email = user.Email,
             AvatarUrl = user.AvatarUrl,
+            BannerUrl = user.BannerUrl,
             Description = user.Description,
             IsAdmin = user.IsAdmin,
             CreatedAt = user.CreatedAt,

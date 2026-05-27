@@ -46,7 +46,7 @@ const ChannelCard = ({
             <div className="w-16 h-16 rounded-full overflow-hidden">
               {avatarUrl ? (
                 <img 
-                  src={avatarUrl} 
+                  src={`http://localhost:9000/${avatarUrl}`} 
                   alt={name}
                   className="w-full h-full object-cover"
                 />
