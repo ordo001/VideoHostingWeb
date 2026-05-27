@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VideoHosting.Infrastructure.Data;
@@ -11,9 +12,11 @@ using VideoHosting.Infrastructure.Data;
 namespace VideoHosting.Infrastructure.Migrations
 {
     [DbContext(typeof(VideoHostingDbContext))]
-    partial class VideoHostingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260516152003_AddAdminFields")]
+    partial class AddAdminFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -308,37 +311,6 @@ namespace VideoHosting.Infrastructure.Migrations
                     b.ToTable("VideoReactions");
                 });
 
-            modelBuilder.Entity("VideoHosting.Domain.Entities.VideoView", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("IpAddress")
-                        .IsRequired()
-                        .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("VideoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("ViewedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("VideoId");
-
-                    b.ToTable("VideoViews");
-                });
-
             modelBuilder.Entity("VideoHosting.Domain.Entities.AdminActionLog", b =>
                 {
                     b.HasOne("VideoHosting.Domain.Entities.User", "AdminUser")
@@ -425,24 +397,6 @@ namespace VideoHosting.Infrastructure.Migrations
                     b.Navigation("Video");
                 });
 
-            modelBuilder.Entity("VideoHosting.Domain.Entities.VideoView", b =>
-                {
-                    b.HasOne("VideoHosting.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("VideoHosting.Domain.Entities.Video", "Video")
-                        .WithMany("VideoViews")
-                        .HasForeignKey("VideoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-
-                    b.Navigation("Video");
-                });
-
             modelBuilder.Entity("VideoHosting.Domain.Entities.User", b =>
                 {
                     b.Navigation("AdminActionLogs");
@@ -463,8 +417,6 @@ namespace VideoHosting.Infrastructure.Migrations
                     b.Navigation("Comments");
 
                     b.Navigation("VideoReactions");
-
-                    b.Navigation("VideoViews");
                 });
 #pragma warning restore 612, 618
         }

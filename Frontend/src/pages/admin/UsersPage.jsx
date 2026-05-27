@@ -15,22 +15,26 @@ const UsersPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [isBannedFilter, setIsBannedFilter] = useState(null); // null, true, false
+  const [isAdminFilter, setIsAdminFilter] = useState(null); // null, true, false
   
   // Загружаем список пользователей
   useEffect(() => {
-    const fetchUsers = async () => {
+const fetchUsers = async () => {
       setLoading(true);
       
       try {
         const data = await adminService.getUsers({
           page: currentPage,
-          limit: 20,
-          search: searchTerm
+          pageSize: 20,
+          searchTerm: searchTerm,
+          isBanned: isBannedFilter,
+          isAdmin: isAdminFilter
         });
         
-        setUsers(data.users || []);
-        setTotalPages(data.total_pages || 1);
-        setTotalCount(data.total || 0);
+        setUsers(data.items || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalCount(data.totalItems || 0);
       } catch (err) {
         showNotification({
           type: 'error',
@@ -43,7 +47,7 @@ const UsersPage = () => {
     };
     
     fetchUsers();
-  }, [currentPage, searchTerm, showNotification]);
+  }, [currentPage, searchTerm, isBannedFilter, isAdminFilter, showNotification]);
   
   // Обработчик поиска
   const handleSearch = (e) => {
@@ -55,14 +59,17 @@ const UsersPage = () => {
   const handleBanToggle = async (userId, isBanned) => {
     try {
       if (isBanned) {
-        await adminService.unbanUser(userId);
+        await adminService.unbanUser(userId, null);
         showNotification({
           type: 'success',
           title: 'Успех',
           message: 'Пользователь разблокирован'
         });
       } else {
-        await adminService.banUser(userId);
+        await adminService.banUser(userId, {
+          reason: 'Нарушение правил платформы',
+          bannedUntil: null
+        });
         showNotification({
           type: 'success',
           title: 'Успех',
@@ -73,11 +80,13 @@ const UsersPage = () => {
       // Обновляем список пользователей
       const data = await adminService.getUsers({
         page: currentPage,
-        limit: 20,
-        search: searchTerm
+        pageSize: 20,
+        searchTerm: searchTerm,
+        isBanned: isBannedFilter,
+        isAdmin: isAdminFilter
       });
       
-      setUsers(data.users || []);
+      setUsers(data.items || []);
     } catch (err) {
       showNotification({
         type: 'error',
@@ -91,14 +100,14 @@ const UsersPage = () => {
   const handleAdminToggle = async (userId, isAdmin) => {
     try {
       if (isAdmin) {
-        await adminService.revokeAdmin(userId);
+        await adminService.revokeAdmin(userId, 'Отзыв прав администратора');
         showNotification({
           type: 'success',
           title: 'Успех',
           message: 'Права администратора отозваны'
         });
       } else {
-        await adminService.makeAdmin(userId);
+        await adminService.makeAdmin(userId, 'Назначение прав администратора');
         showNotification({
           type: 'success',
           title: 'Успех',
@@ -109,11 +118,13 @@ const UsersPage = () => {
       // Обновляем список пользователей
       const data = await adminService.getUsers({
         page: currentPage,
-        limit: 20,
-        search: searchTerm
+        pageSize: 20,
+        searchTerm: searchTerm,
+        isBanned: isBannedFilter,
+        isAdmin: isAdminFilter
       });
       
-      setUsers(data.users || []);
+      setUsers(data.items || []);
     } catch (err) {
       showNotification({
         type: 'error',
@@ -142,14 +153,14 @@ const UsersPage = () => {
             </p>
           </div>
           
-          <div className="mt-4 md:mt-0">
+          <div className="mt-4 md:mt-0 flex space-x-3">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Поиск по имени или email..."
                 value={searchTerm}
                 onChange={handleSearch}
-                className="w-full md:w-80 px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
+                className="w-full md:w-64 px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
               />
               <div className="absolute right-3 top-2.5 text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,6 +168,34 @@ const UsersPage = () => {
                 </svg>
               </div>
             </div>
+            
+            <select
+              value={isBannedFilter === null ? "all" : isBannedFilter ? "banned" : "active"}
+              onChange={(e) => {
+                const value = e.target.value;
+                setIsBannedFilter(value === "all" ? null : value === "banned");
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
+            >
+              <option value="all">Все статусы</option>
+              <option value="active">Активные</option>
+              <option value="banned">Заблокированные</option>
+            </select>
+            
+            <select
+              value={isAdminFilter === null ? "all" : isAdminFilter ? "admin" : "user"}
+              onChange={(e) => {
+                const value = e.target.value;
+                setIsAdminFilter(value === "all" ? null : value === "admin");
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
+            >
+              <option value="all">Все роли</option>
+              <option value="user">Пользователи</option>
+              <option value="admin">Администраторы</option>
+            </select>
           </div>
         </div>
       </div>
@@ -193,18 +232,18 @@ const UsersPage = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center">
-                          {user.avatar ? (
-                            <img 
-                              src={user.avatar} 
-                              alt={user.name} 
-                              className="h-10 w-10 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="font-medium text-gray-300">
-                              {user.name.charAt(0)}
-                            </span>
-                          )}
+                        <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
+                            {user.avatarUrl ? (
+                                <img
+                                    src={`http://localhost:9000/${user.avatarUrl}`}
+                                    alt={user.userName}
+                                    className="h-10 w-10 rounded-full object-cover"
+                                />
+                            ) : (
+                                <span className="font-medium text-gray-300">
+                                    {user.userName ? user.userName.charAt(0) : '?'}
+                                </span>
+                            )}
                         </div>
                       </div>
                       <div className="ml-4">
@@ -212,9 +251,9 @@ const UsersPage = () => {
                           className="text-sm font-medium text-white cursor-pointer hover:text-blue-400 transition-colors"
                           onClick={() => navigate(`/channel/${user.id}`)}
                         >
-                          {user.name}
+                          {user.userName}
                         </div>
-                        {user.is_admin && (
+                        {user.isAdmin && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-900 bg-opacity-50 text-purple-300">
                             Админ
                           </span>
@@ -226,13 +265,13 @@ const UsersPage = () => {
                     {user.email}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {user.videos_count?.toLocaleString() || 0}
+                    {user.videoCount?.toLocaleString() || 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {new Date(user.registrationDate).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {user.is_banned ? (
+                    {user.isBanned ? (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-900 bg-opacity-50 text-red-300">
                         Заблокирован
                       </span>
@@ -252,13 +291,13 @@ const UsersPage = () => {
                         Канал
                       </Button>
                       <Button
-                        variant={user.is_banned ? "primary" : "secondary"}
+                        variant={user.isBanned ? "primary" : "secondary"}
                         size="sm"
-                        onClick={() => handleBanToggle(user.id, user.is_banned)}
+                        onClick={() => handleBanToggle(user.id, user.isBanned)}
                       >
-                        {user.is_banned ? 'Разблокировать' : 'Заблокировать'}
+                        {user.isBanned ? 'Разблокировать' : 'Заблокировать'}
                       </Button>
-                      {user.is_admin ? (
+                      {user.isAdmin ? (
                         <Button
                           variant="secondary"
                           size="sm"

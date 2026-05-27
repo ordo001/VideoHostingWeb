@@ -19,6 +19,25 @@ const VideosPage = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [moderationStatus, setModerationStatus] = useState('Pending');
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  
+  // Функция для получения текстового представления статуса модерации
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'Approved':
+        return 'Одобрено';
+      case 'Rejected':
+        return 'Отклонено';
+      case 'Pending':
+        return 'На проверке';
+      default:
+        return 'Неизвестно';
+    }
+  };
   
   // Загружаем список видео для модерации
   useEffect(() => {
@@ -27,14 +46,17 @@ const VideosPage = () => {
       
       try {
         const data = await adminService.getVideosForModeration({
-          page: currentPage,
-          limit: 20,
-          search: searchTerm
-        });
+        page: currentPage,
+        pageSize: 20,
+        searchTerm: searchTerm,
+        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null
+      });
         
-        setVideos(data.videos || []);
-        setTotalPages(data.total_pages || 1);
-        setTotalCount(data.total || 0);
+        setVideos(data.items || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalCount(data.totalItems || 0);
       } catch (err) {
         showNotification({
           type: 'error',
@@ -47,7 +69,7 @@ const VideosPage = () => {
     };
     
     fetchVideos();
-  }, [currentPage, searchTerm, showNotification]);
+  }, [currentPage, searchTerm, moderationStatus, dateFrom, dateTo, showNotification]);
   
   // Обработчик поиска
   const handleSearch = (e) => {
@@ -89,11 +111,96 @@ const VideosPage = () => {
       // Обновляем список видео
       const data = await adminService.getVideosForModeration({
         page: currentPage,
-        limit: 20,
-        search: searchTerm
+        pageSize: 20,
+        searchTerm: searchTerm,
+        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null
       });
       
-      setVideos(data.videos || []);
+      setVideos(data.items || []);
+    } catch (err) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка',
+        message: err.message
+      });
+    }
+  };
+  
+  // Обработчик одобрения видео
+  const handleApproveVideo = async (videoId) => {
+    try {
+      await adminService.approveVideo(videoId, 'Видео одобрено');
+      
+      showNotification({
+        type: 'success',
+        title: 'Успех',
+        message: 'Видео успешно одобрено'
+      });
+      
+      // Обновляем список видео
+      const data = await adminService.getVideosForModeration({
+        page: currentPage,
+        pageSize: 20,
+        searchTerm: searchTerm,
+        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null
+      });
+      
+      setVideos(data.items || []);
+    } catch (err) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка',
+        message: err.message
+      });
+    }
+  };
+  
+  // Обработчик открытия модального окна отклонения
+  const handleRejectClick = (video) => {
+    setSelectedVideo(video);
+    setRejectReason('');
+    setRejectModalOpen(true);
+  };
+  
+  // Обработчик подтверждения отклонения
+  const handleConfirmReject = async () => {
+    if (!selectedVideo || !rejectReason.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка',
+        message: 'Укажите причину отклонения'
+      });
+      return;
+    }
+    
+    try {
+      await adminService.rejectVideo(selectedVideo.id, rejectReason);
+      
+      showNotification({
+        type: 'success',
+        title: 'Успех',
+        message: 'Видео успешно отклонено'
+      });
+      
+      setRejectModalOpen(false);
+      setSelectedVideo(null);
+      setRejectReason('');
+      
+      // Обновляем список видео
+      const data = await adminService.getVideosForModeration({
+        page: currentPage,
+        pageSize: 20,
+        searchTerm: searchTerm,
+        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null
+      });
+      
+      setVideos(data.items || []);
     } catch (err) {
       showNotification({
         type: 'error',
@@ -122,14 +229,14 @@ const VideosPage = () => {
             </p>
           </div>
           
-          <div className="mt-4 md:mt-0">
+          <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Поиск по названию..."
                 value={searchTerm}
                 onChange={handleSearch}
-                className="w-full md:w-80 px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
+                className="w-full md:w-64 px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
               />
               <div className="absolute right-3 top-2.5 text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -137,6 +244,42 @@ const VideosPage = () => {
                 </svg>
               </div>
             </div>
+            
+            <select
+              value={moderationStatus}
+              onChange={(e) => {
+                setModerationStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
+            >
+              <option value="">Все статусы</option>
+              <option value="Pending">На проверке</option>
+              <option value="Approved">Одобрено</option>
+              <option value="Rejected">Отклонено</option>
+            </select>
+            
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
+              placeholder="Дата от"
+            />
+            
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
+              placeholder="Дата до"
+            />
           </div>
         </div>
       </div>
@@ -174,9 +317,9 @@ const VideosPage = () => {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-16 w-24">
                         <div className="h-16 w-24 rounded-lg bg-gray-800 flex items-center justify-center">
-                          {video.thumbnail_url ? (
+                          {video.thumbnailUrl ? (
                             <img 
-                              src={video.thumbnail_url} 
+                              src={`http://localhost:9000/${video.thumbnailUrl}`} 
                               alt={video.title} 
                               className="h-16 w-24 rounded-lg object-cover"
                             />
@@ -190,7 +333,13 @@ const VideosPage = () => {
                           {video.title}
                         </div>
                         <div className="text-sm text-gray-400">
-                          {Math.floor(video.duration / 60)}:{String(video.duration % 60).padStart(2, '0')}
+                          {video.duration ? 
+                            `${Math.floor(video.duration / 60)}:${String(video.duration % 60).padStart(2, '0')}` :
+                            '--:--'
+                          }
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Статус: {getStatusText(video.moderationStatus)}
                         </div>
                       </div>
                     </div>
@@ -199,25 +348,17 @@ const VideosPage = () => {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-8 w-8">
                         <div className="h-8 w-8 rounded-full bg-gray-800 flex items-center justify-center">
-                          {video.author?.avatar ? (
-                            <img 
-                              src={video.author.avatar} 
-                              alt={video.author.name} 
-                              className="h-8 w-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="font-medium text-gray-300 text-xs">
-                              {video.author?.name?.charAt(0) || '?'}
-                            </span>
-                          )}
+                          <span className="font-medium text-gray-300 text-xs">
+                            {video.authorName?.charAt(0) || '?'}
+                          </span>
                         </div>
                       </div>
                       <div className="ml-2">
                         <div 
                           className="text-sm font-medium text-white cursor-pointer hover:text-blue-400 transition-colors"
-                          onClick={() => navigate(`/channel/${video.author?.id}`)}
+                          onClick={() => navigate(`/channel/${video.authorId}`)}
                         >
-                          {video.author?.name || 'Неизвестный автор'}
+                          {video.authorName || 'Неизвестный автор'}
                         </div>
                       </div>
                     </div>
@@ -230,16 +371,36 @@ const VideosPage = () => {
                     <span className="text-green-400">+{video.likes?.toLocaleString() || 0}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {new Date(video.created_at).toLocaleDateString()}
+                    {new Date(video.uploadDate).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleDeleteClick(video)}
-                    >
-                      Удалить
-                    </Button>
+                    <div className="flex justify-end space-x-2">
+                      {video.moderationStatus === 'Pending' && (
+                        <>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleApproveVideo(video.id)}
+                          >
+                            Одобрить
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleRejectClick(video)}
+                          >
+                            Отклонить
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDeleteClick(video)}
+                      >
+                        Удалить
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -291,7 +452,7 @@ const VideosPage = () => {
             
             <div className="mb-4">
               <h3 className="font-medium text-white mb-2">Автор:</h3>
-              <p className="text-gray-300">{selectedVideo.author?.name || 'Неизвестный автор'}</p>
+              <p className="text-gray-300">{selectedVideo.authorName || 'Неизвестный автор'}</p>
             </div>
             
             <div className="mb-6">
@@ -320,6 +481,57 @@ const VideosPage = () => {
                 disabled={!deleteReason.trim()}
               >
                 Удалить видео
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+      
+      {/* Модальное окно отклонения */}
+      <Modal
+        isOpen={rejectModalOpen}
+        onClose={() => setRejectModalOpen(false)}
+        title="Отклонение видео"
+        size="md"
+      >
+        {selectedVideo && (
+          <div>
+            <div className="mb-4">
+              <h3 className="font-medium text-white mb-2">Видео:</h3>
+              <p className="text-gray-300">{selectedVideo.title}</p>
+            </div>
+            
+            <div className="mb-4">
+              <h3 className="font-medium text-white mb-2">Автор:</h3>
+              <p className="text-gray-300">{selectedVideo.authorName || 'Неизвестный автор'}</p>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Причина отклонения <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
+                placeholder="Укажите причину отклонения видео..."
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="secondary"
+                onClick={() => setRejectModalOpen(false)}
+              >
+                Отмена
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleConfirmReject}
+                disabled={!rejectReason.trim()}
+              >
+                Отклонить видео
               </Button>
             </div>
           </div>

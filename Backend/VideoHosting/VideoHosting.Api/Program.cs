@@ -16,7 +16,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Настройка сериализации JSON
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 
 // Add DbContext
 builder.Services.AddDbContext<VideoHostingDbContext>(options =>
@@ -59,9 +65,11 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
-    builder.Services.AddScoped<IFileService, FileService>();
-    builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.MinioService>();
-    builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IMinioService, VideoHosting.Infrastructure.Storage.MinioService>();
+builder.Services.AddScoped<IRabbitMqService, VideoHosting.Infrastructure.Messaging.RabbitMqService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IVideoViewRepository, VideoViewRepository>();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {

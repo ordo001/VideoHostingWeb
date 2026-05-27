@@ -15,6 +15,7 @@ public class VideoHostingDbContext : DbContext
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
     public DbSet<VideoReaction> VideoReactions { get; set; } = null!;
     public DbSet<AdminActionLog> AdminActionLogs { get; set; } = null!;
+    public DbSet<VideoView> VideoViews { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +30,7 @@ public class VideoHostingDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW()");
+            entity.Property(e => e.BanReason).HasMaxLength(500);
         });
 
         // Video entity configuration
@@ -44,6 +46,11 @@ public class VideoHostingDbContext : DbContext
                 .WithMany(u => u.Videos)
                 .HasForeignKey(v => v.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.HasOne(v => v.ModeratedBy)
+                .WithMany()
+                .HasForeignKey(v => v.ModeratedById)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Comment entity configuration
@@ -110,12 +117,33 @@ public class VideoHostingDbContext : DbContext
             entity.Property(e => e.Action).HasMaxLength(100);
             entity.Property(e => e.TargetType).HasMaxLength(50);
             entity.Property(e => e.Reason).HasMaxLength(500);
+            entity.Property(e => e.Details).HasMaxLength(1000);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             
             entity.HasOne(l => l.AdminUser)
-                .WithMany()
+                .WithMany(u => u.AdminActionLogs)
                 .HasForeignKey(l => l.AdminUserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        // VideoView entity configuration
+        modelBuilder.Entity<VideoView>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.ViewedAt).HasDefaultValueSql("NOW()");
+            
+            entity.HasOne(vv => vv.Video)
+                .WithMany(v => v.VideoViews)
+                .HasForeignKey(vv => vv.VideoId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.HasOne(vv => vv.User)
+                .WithMany()
+                .HasForeignKey(vv => vv.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }
