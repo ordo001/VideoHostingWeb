@@ -337,23 +337,7 @@ const VideoPlayer = ({
       video.addEventListener('ended', onEnded);
     }
 
-    // Функция для смены качества видео
-  const changeQuality = (levelIndex) => {
-    if (hlsRef.current) {
-      hlsRef.current.currentLevel = levelIndex;
-      setCurrentLevel(levelIndex);
-      setShowQualityMenu(false);
-    }
-  };
-
-  // Обработчик для отображения названия текущего качества
-  const getQualityText = () => {
-    if (currentLevel === -1) return 'Авто';
-    const currentLevelObj = availableLevels.find(level => level.levelIndex === currentLevel);
-    return currentLevelObj ? currentLevelObj.name : 'Авто';
-  };
-
-  return () => {
+    return () => {
       cleanup();
       
       // Очищаем ресурсы, связанные с загрузчиком сегментов
@@ -375,6 +359,23 @@ const VideoPlayer = ({
       }
     };
   }, [videoUrl, autoPlay, onTimeUpdate, onLoadedMetadata, onEnded, currentLevel, availableLevels]);
+
+  // Функция для смены качества видео
+  const changeQuality = (levelIndex) => {
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = levelIndex;
+      setCurrentLevel(levelIndex);
+      setShowQualityMenu(false);
+      console.log(`Quality changed to level: ${levelIndex}`);
+    }
+  };
+
+  // Обработчик для отображения названия текущего качества
+  const getQualityText = () => {
+    if (currentLevel === -1) return 'Авто';
+    const currentLevelObj = availableLevels.find(level => level.levelIndex === currentLevel);
+    return currentLevelObj ? currentLevelObj.name : 'Авто';
+  };
 
   return (
     <div className={`relative bg-black aspect-video rounded-xl overflow-hidden ${className}`}>
