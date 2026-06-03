@@ -5,7 +5,7 @@ import { useUI } from '../hooks/useUI';
 import { useAuthModal } from '../hooks/useAuthModal';
 import videoService from '../services/videoService';
 import subscriptionService from '../services/subscriptionService';
-import VideoPlayer from '../components/VideoPlayer';
+import HLSVideoPlayer from '../components/HLSVideoPlayer';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
 const BASE_URL = 'http://localhost:9000';
@@ -527,8 +527,8 @@ const WatchPage = () => {
                 </div>
               </div>
             ) : (
-              <VideoPlayer
-                videoUrl={videoData.hls_url}
+              <HLSVideoPlayer
+                videoId={videoId}
                 poster={videoData.thumbnail_url}
                 title={videoData.title}
               />
