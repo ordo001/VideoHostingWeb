@@ -41,6 +41,58 @@ const formatUploadDate = (dateString) => {
   }
 };
 
+// Функция форматирования даты комментария (относительное время)
+const formatCommentDate = (dateString) => {
+  if (!dateString) return 'Только что';
+  
+  const commentDate = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now - commentDate);
+  const diffMinutes = Math.floor(diffTime / (1000 * 60));
+  const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffMinutes < 1) {
+    return 'Только что';
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} ${getMinuteForm(diffMinutes)} назад`;
+  } else if (diffHours < 24) {
+    return `${diffHours} ${getHourForm(diffHours)} назад`;
+  } else if (diffDays < 7) {
+    return `${diffDays} ${getDayForm(diffDays)} назад`;
+  } else if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} ${getWeekForm(weeks)} назад`;
+  } else {
+    return commentDate.toLocaleDateString('ru-RU');
+  }
+};
+
+// Вспомогательные функции для склонения
+const getMinuteForm = (minutes) => {
+  if (minutes % 10 === 1 && minutes % 100 !== 11) return 'минуту';
+  if (minutes % 10 >= 2 && minutes % 10 <= 4 && (minutes % 100 < 10 || minutes % 100 >= 20)) return 'минуты';
+  return 'минут';
+};
+
+const getHourForm = (hours) => {
+  if (hours % 10 === 1 && hours % 100 !== 11) return 'час';
+  if (hours % 10 >= 2 && hours % 10 <= 4 && (hours % 100 < 10 || hours % 100 >= 20)) return 'часа';
+  return 'часов';
+};
+
+const getDayForm = (days) => {
+  if (days % 10 === 1 && days % 100 !== 11) return 'день';
+  if (days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 10 || days % 100 >= 20)) return 'дня';
+  return 'дней';
+};
+
+const getWeekForm = (weeks) => {
+  if (weeks % 10 === 1 && weeks % 100 !== 11) return 'неделю';
+  if (weeks % 10 >= 2 && weeks % 10 <= 4 && (weeks % 100 < 10 || weeks % 100 >= 20)) return 'недели';
+  return 'недель';
+};
+
 const WatchPage = () => {
   const { videoId } = useParams();
   const navigate = useNavigate();
@@ -536,7 +588,7 @@ const WatchPage = () => {
             
             {/* Информация о видео */}
             <div className="mt-6">
-              <h1 className="text-2xl font-bold mb-4">{videoData.title}</h1>
+              <h1 className="text-2xl font-bold mb-4 text-left">{videoData.title}</h1>
               
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div className="flex items-center mb-4 sm:mb-0">
@@ -614,7 +666,7 @@ const WatchPage = () => {
                   <span className="mx-2">•</span>
                   <span>{formatUploadDate(videoData.created_at)}</span>
                 </div>
-                <p className="text-gray-300">{videoData.description}</p>
+                <p className="text-gray-300 text-left">{videoData.description}</p>
               </div>
             </div>
             
@@ -647,7 +699,7 @@ const WatchPage = () => {
                     <textarea
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      className="w-full bg-gray-900 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                      className="w-full bg-gray-900 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary resize-none text-left"
                       placeholder={user ? "Добавить комментарий..." : "Войдите, чтобы оставить комментарий"}
                       rows={3}
                       disabled={!user}
@@ -679,7 +731,7 @@ const WatchPage = () => {
                   ) : (
                     comments.map(comment => (
                       <div key={comment.id} className="flex">
-                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0">
                           {comment.author?.avatar ? (
                             <img 
                               src={`http://localhost:9000/${comment.author.avatar}`} 
@@ -687,43 +739,33 @@ const WatchPage = () => {
                               className="w-full h-full rounded-full object-cover"
                             />
                           ) : (
-                            <span className="font-medium text-gray-300">
+                            <span className="font-medium text-gray-300 text-xs">
                               {comment.author?.name?.charAt(0) || '?'}
                             </span>
                           )}
                         </div>
                         <div className="flex-1">
-                          <div className="bg-gray-900 rounded-2xl p-4">
-                            <div 
-                              className="font-medium cursor-pointer hover:text-blue-400 transition-colors"
-                              onClick={() => navigate(`/channel/${comment.author?.id}`)}
-                            >
-                              {comment.author?.name || 'Аноним'}
+                          <div className="text-left">
+                            <div className="flex items-center mb-1">
+                              <span 
+                                className="font-medium text-sm mr-2 cursor-pointer hover:text-blue-400 transition-colors"
+                                onClick={() => navigate(`/channel/${comment.author?.id}`)}
+                              >
+                                @{comment.author?.name || 'anonymous'}
+                              </span>
+                              <span className="text-xs text-gray-500">{formatCommentDate(comment.created_at)}</span>
                             </div>
-                            <p className="text-gray-300 mt-2">{comment.text || comment.content}</p>
-                            <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
-                              <div className="flex items-center">
-                                <span>{new Date(comment.created_at).toLocaleDateString()}</span>
-                                <Button variant="ghost" size="sm" className="ml-4 text-gray-500 hover:text-white">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                                  </svg>
-                                  {comment.likes || 0}
-                                </Button>
-                              </div>
-                              {user && comment.author?.id === user.id && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-gray-500 hover:text-red-500"
-                                  onClick={() => handleDeleteComment(comment.id)}
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                  </svg>
-                                </Button>
-                              )}
-                            </div>
+                            <div className="text-gray-300 text-sm mb-2">{comment.text || comment.content}</div>
+                            {user && comment.author?.id === user.id && (
+                              <Button 
+                                variant="ghost" 
+                                size="xs" 
+                                className="text-xs text-gray-500 hover:text-red-500 p-1"
+                                onClick={() => handleDeleteComment(comment.id)}
+                              >
+                                Удалить
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>

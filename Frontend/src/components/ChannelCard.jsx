@@ -62,7 +62,7 @@ const ChannelCard = ({
           
           {/* Информация о канале */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold text-white truncate">
+            <h3 className="text-lg font-bold text-white truncate text-left">
               {name || 'Неизвестный канал'}
             </h3>
             
@@ -71,7 +71,7 @@ const ChannelCard = ({
             </div>
             
             <div className="flex text-gray-500 text-sm">
-              <span>{videosCount || 0} видео</span>
+              <span>{formatNumber(videosCount || 0)} видео</span>
             </div>
           </div>
         </div>
