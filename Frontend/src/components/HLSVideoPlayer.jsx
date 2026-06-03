@@ -194,7 +194,7 @@ const HLSVideoPlayer = ({
       {/* Quality selection button */}
       {controls && availableQualities.length > 0 && (
         <div className="absolute bottom-4 right-4 z-10">
-          <div className="relative">
+          <div className="relative pb-[17px] pr-[120px]">
             <button
               className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white px-3 py-1 rounded text-sm transition-all flex items-center"
               onClick={() => setShowQualityMenu(!showQualityMenu)}
