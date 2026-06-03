@@ -39,7 +39,7 @@ const HLSVideoPlayer = ({
     setError(null);
 
     // If browser supports HLS natively (Safari)
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    if (!video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = `http://localhost:9000/videos/${videoId}/master.m3u8`;
       video.addEventListener('loadedmetadata', () => setIsLoading(false));
       video.addEventListener('error', (e) => {
