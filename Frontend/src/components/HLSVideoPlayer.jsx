@@ -70,7 +70,7 @@ const HLSVideoPlayer = ({
     const url = `http://localhost:9000/videos/${videoId}/master.m3u8`;
 
     // Native HLS support (Safari) — canPlayType returns 'probably' or 'maybe'
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    if (!video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
       video.addEventListener('loadedmetadata', () => setIsLoading(false));
       video.addEventListener('error', () => {
@@ -449,12 +449,6 @@ const HLSVideoPlayer = ({
     </svg>
   );
 
-  const QualityIcon = (
-    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-2v-4H8v-2h4V8h2v4h4v2z" />
-    </svg>
-  );
-
   const getVolumeIcon = () => {
     if (isMuted || volume === 0) return VolumeMuteIcon;
     if (volume < 0.5) return VolumeLowIcon;
@@ -646,7 +640,6 @@ const HLSVideoPlayer = ({
                   aria-label="Выбор качества видео"
                   type="button"
                 >
-                  {QualityIcon}
                   <span className="text-xs">{getQualityText()}</span>
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
