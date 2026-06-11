@@ -57,16 +57,14 @@ export const subscriptionService = {
         channels = data || [];
       }
       
-      // Для каждого канала получаем количество видео, если его нет
+      // Для каждого канала получаем количество видео
       const channelsWithVideoCount = await Promise.all(
         channels.map(async (channel) => {
-          if (!channel.videos_count || channel.videos_count === 0) {
-            try {
-              const videosData = await channelService.getChannelVideos(channel.id, { limit: 1 });
-              channel.videos_count = videosData.count || 0;
-            } catch (error) {
-              channel.videos_count = 0;
-            }
+          try {
+            const videosData = await channelService.getChannelVideos(channel.id, { limit: 1 });
+            channel.videos_count = videosData.count || 0;
+          } catch (error) {
+            channel.videos_count = channel.videos_count || 0;
           }
           return channel;
         })

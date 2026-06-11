@@ -7,7 +7,7 @@ import subscriptionService from '../services/subscriptionService';
 import ChannelCard from '../components/ChannelCard';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
-
+const BASE_URL = 'http://localhost:9000';
 const SubscriptionsPage = () => {
   const { isAuthenticated } = useAuth();
   const { showNotification } = useUI();
@@ -77,7 +77,7 @@ const SubscriptionsPage = () => {
                   key={channel.id}
                   id={channel.id}
                   name={channel.name}
-                  avatarUrl={channel.avatar_url}
+                  avatarUrl={`${BASE_URL}/${channel}`}
                   subscribersCount={channel.subscribers_count}
                   videosCount={channel.videos_count}
                 />
