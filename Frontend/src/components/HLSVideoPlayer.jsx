@@ -113,33 +113,49 @@ const HLSVideoPlayer = ({
       hls.on(Hls.Events.MANIFEST_PARSED, async () => {
         setIsLoading(false);
 
+        let qualities = [];
+
         try {
           const playlistContent = await hlsService.getMasterPlaylist(videoId);
-          const qualities = hlsService.getAvailableQualities(playlistContent);
-          qualitiesRef.current = qualities;
-          setAvailableQualities(qualities);
-
-          if (qualities.length > 0) {
-            const screenWidth = window.screen.width;
-            let selectedQuality = qualities[qualities.length - 1];
-
-            if (screenWidth <= 640 && qualities.find(q => q.name === '360P')) {
-              selectedQuality = qualities.find(q => q.name === '360P');
-            } else if (screenWidth <= 1280 && qualities.find(q => q.name === '720P')) {
-              selectedQuality = qualities.find(q => q.name === '720P');
-            }
-
-            const levelIndex = hls.levels.findIndex(level =>
-              level.height === selectedQuality.height
-            );
-
-            if (levelIndex !== -1) {
-              hls.currentLevel = levelIndex;
-              setCurrentQuality(selectedQuality.name);
-            }
-          }
+          qualities = hlsService.getAvailableQualities(playlistContent);
+          console.log('[HLSPlayer] Parsed qualities from playlist:', qualities);
         } catch (err) {
-          console.error('Error getting available qualities:', err);
+          console.warn('[HLSPlayer] Could not fetch/parse master playlist, falling back to hls.levels:', err);
+        }
+
+        // Fallback: derive qualities from hls.js levels if playlist parsing yielded nothing
+        if (qualities.length === 0 && hls.levels && hls.levels.length > 0) {
+          qualities = hls.levels
+            .map(level => ({
+              height: level.height,
+              name: `${level.height}P`,
+              playlistUrl: null
+            }))
+            .sort((a, b) => a.height - b.height);
+          console.log('[HLSPlayer] Fallback qualities from hls.levels:', qualities);
+        }
+
+        qualitiesRef.current = qualities;
+        setAvailableQualities(qualities);
+
+        if (qualities.length > 0) {
+          const screenWidth = window.screen.width;
+          let selectedQuality = qualities[qualities.length - 1];
+
+          if (screenWidth <= 640 && qualities.find(q => q.name === '360P')) {
+            selectedQuality = qualities.find(q => q.name === '360P');
+          } else if (screenWidth <= 1280 && qualities.find(q => q.name === '720P')) {
+            selectedQuality = qualities.find(q => q.name === '720P');
+          }
+
+          const levelIndex = hls.levels.findIndex(level =>
+            level.height === selectedQuality.height
+          );
+
+          if (levelIndex !== -1) {
+            hls.currentLevel = levelIndex;
+            setCurrentQuality(selectedQuality.name);
+          }
         }
 
         if (autoPlay) {
