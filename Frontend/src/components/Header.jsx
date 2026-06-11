@@ -1,13 +1,36 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthModal } from '../hooks/useAuthModal';
 import Button from './Button';
 
 const Header = () => {
   const BASE_URL = 'http://localhost:9000';
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
+  const navigate = useNavigate();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    setIsDropdownOpen(false);
+    navigate('/login');
+  };
   
   return (
     <header className="sticky top-0 z-30 bg-black bg-opacity-80 backdrop-blur-sm border-b border-gray-800">
@@ -73,21 +96,46 @@ const Header = () => {
                       Загрузить
                     </Button>
                   </Link>
-                  <Link to={`/channel/${user?.id || 'me'}`} className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center">
-                      {user?.avatar || user?.avatar_url ? (
-                        <img
-                          src={`${BASE_URL}/${user.avatar}`} 
-                          alt={user.name} 
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-white text-sm font-medium">
-                          {user?.name?.charAt(0) || 'U'}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
+                  <div className="relative" ref={dropdownRef}>
+                    <button 
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="flex items-center focus:outline-none"
+                      aria-haspopup="true"
+                      aria-expanded={isDropdownOpen}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center">
+                        {user?.avatar || user?.avatar_url ? (
+                          <img
+                            src={`${BASE_URL}/${user.avatar}`} 
+                            alt={user.name} 
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-white text-sm font-medium">
+                            {user?.name?.charAt(0) || 'U'}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                    
+                    {isDropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg py-1 z-50 border border-gray-700">
+                        <Link 
+                          to={`/channel/${user?.id || 'me'}`}
+                          className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200"
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          Мой канал
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200"
+                        >
+                          Выйти
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
