@@ -311,12 +311,13 @@ public class AdminService : IAdminService
         var now = DateTime.UtcNow;
         var dateFrom = period switch
         {
-            "24h" => now.AddDays(-1),
+            "24h" => now.AddHours(-24),
             "7d" => now.AddDays(-7),
             "30d" => now.AddDays(-30),
-            "all" => DateTime.MinValue,
-            _ => now.AddDays(-30)
+            _ => now.AddDays(-7) // default to 7d for invalid values (removed "all")
         };
+
+        var isHourly = period == "24h";
 
         // Общая статистика
         var totalUsers = await _context.Users.CountAsync();
@@ -328,78 +329,197 @@ public class AdminService : IAdminService
         var totalLikes = await _context.VideoReactions.CountAsync(vr => vr.ReactionType == ReactionType.Like);
         var newLikes = await _context.VideoReactions.CountAsync(vr => vr.ReactionType == ReactionType.Like && vr.CreatedAt >= dateFrom);
 
-        // Рост пользователей
-        var userGrowth = await _context.Users
-            .Where(u => u.CreatedAt >= dateFrom)
-            .GroupBy(u => u.CreatedAt.Date)
-            .Select(g => new UserGrowthDto
-            {
-                Date = g.Key,
-                Count = g.Count()
-            })
-            .OrderBy(g => g.Date)
-            .ToListAsync();
-
-        // Популярные видео
-        var popularVideos = await _context.Videos
-            .Include(v => v.User)
-            .OrderByDescending(v => v.Views)
-            .Take(5)
-            .Select(v => new PopularVideoDto
-            {
-                Id = v.Id,
-                Title = v.Title,
-                AuthorName = v.User.Name,
-                Views = v.Views,
-                Likes = v.Likes
-            })
-            .ToListAsync();
-
-        // График активности
-        var activityGraph = new List<ActivityGraphDto>();
-        var days = (int)(now - dateFrom).TotalDays;
-        for (int i = 0; i <= days; i++)
+        // Рост пользователей — почасовой для 24h, дневной для остальных
+        if (isHourly)
         {
-            var day = dateFrom.AddDays(i);
-            var nextDay = day.AddDays(1);
-            
-            var views = await _context.VideoViews
-                .Where(v => v.ViewedAt >= day && v.ViewedAt < nextDay)
-                .CountAsync();
-                
-            var uploads = await _context.Videos
-                .CountAsync(v => v.CreatedAt >= day && v.CreatedAt < nextDay);
-                
-            var registrations = await _context.Users
-                .CountAsync(u => u.CreatedAt >= day && u.CreatedAt < nextDay);
+            var userGrowth = await _context.Users
+                .Where(u => u.CreatedAt >= dateFrom)
+                .GroupBy(u => new
+                {
+                    u.CreatedAt.Date,
+                    u.CreatedAt.Hour
+                })
+                .Select(g => new UserGrowthDto
+                {
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Count = g.Count()
+                })
+                .OrderBy(g => g.Date)
+                .ToListAsync();
 
-            activityGraph.Add(new ActivityGraphDto
+            // Популярные видео
+            var popularVideos = await _context.Videos
+                .Include(v => v.User)
+                .OrderByDescending(v => v.Views)
+                .Take(5)
+                .Select(v => new PopularVideoDto
+                {
+                    Id = v.Id,
+                    Title = v.Title,
+                    AuthorName = v.User.Name,
+                    Views = v.Views,
+                    Likes = v.Likes
+                })
+                .ToListAsync();
+
+            // График активности — единый почасовой запрос для просмотров
+            var viewsByHour = await _context.VideoViews
+                .Where(v => v.ViewedAt >= dateFrom)
+                .GroupBy(v => new { v.ViewedAt.Date, v.ViewedAt.Hour })
+                .Select(g => new
+                {
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Count = g.Count()
+                })
+                .ToListAsync();
+
+            // Единый почасовой запрос для загрузок видео
+            var uploadsByHour = await _context.Videos
+                .Where(v => v.CreatedAt >= dateFrom)
+                .GroupBy(v => new { v.CreatedAt.Date, v.CreatedAt.Hour })
+                .Select(g => new
+                {
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Count = g.Count()
+                })
+                .ToListAsync();
+
+            // Единый почасовой запрос для регистраций
+            var regsByHour = await _context.Users
+                .Where(u => u.CreatedAt >= dateFrom)
+                .GroupBy(u => new { u.CreatedAt.Date, u.CreatedAt.Hour })
+                .Select(g => new
+                {
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Count = g.Count()
+                })
+                .ToListAsync();
+
+            var viewsDict = viewsByHour.ToDictionary(x => x.Date, x => x.Count);
+            var uploadsDict = uploadsByHour.ToDictionary(x => x.Date, x => x.Count);
+            var regsDict = regsByHour.ToDictionary(x => x.Date, x => x.Count);
+
+            // Генерируем 24 почасовые точки
+            var activityGraph = new List<ActivityGraphDto>();
+            for (int i = 23; i >= 0; i--)
             {
-                Date = day,
-                Views = views,
-                Uploads = uploads,
-                Registrations = registrations
-            });
+                var hour = now.AddHours(-i);
+                var key = new DateTime(hour.Year, hour.Month, hour.Day, hour.Hour, 0, 0);
+
+                activityGraph.Add(new ActivityGraphDto
+                {
+                    Date = key,
+                    Views = viewsDict.TryGetValue(key, out var v) ? v : 0,
+                    Uploads = uploadsDict.TryGetValue(key, out var u) ? u : 0,
+                    Registrations = regsDict.TryGetValue(key, out var r) ? r : 0
+                });
+            }
+
+            // География пользователей (временно пусто, нужно отдельное хранение геоданных)
+            var userGeography = new List<UserGeographyDto>();
+
+            return new PlatformStatsDto
+            {
+                TotalUsers = totalUsers,
+                NewUsers = newUsers,
+                TotalVideos = totalVideos,
+                NewVideos = newVideos,
+                TotalViews = totalViews,
+                NewViews = newViews,
+                TotalLikes = totalLikes,
+                NewLikes = newLikes,
+                UserGrowth = userGrowth.ToArray(),
+                PopularVideos = popularVideos.ToArray(),
+                ActivityGraph = activityGraph.ToArray(),
+                UserGeography = userGeography.ToArray()
+            };
         }
-
-        // География пользователей (временно пусто, нужнд отдельное хранение геоданных)
-        var userGeography = new List<UserGeographyDto>();
-
-        return new PlatformStatsDto
+        else
         {
-            TotalUsers = totalUsers,
-            NewUsers = newUsers,
-            TotalVideos = totalVideos,
-            NewVideos = newVideos,
-            TotalViews = totalViews,
-            NewViews = newViews,
-            TotalLikes = totalLikes,
-            NewLikes = newLikes,
-            UserGrowth = userGrowth.ToArray(),
-            PopularVideos = popularVideos.ToArray(),
-            ActivityGraph = activityGraph.ToArray(),
-            UserGeography = userGeography.ToArray()
-        };
+            // Дневная агрегация (7d, 30d)
+            var userGrowth = await _context.Users
+                .Where(u => u.CreatedAt >= dateFrom)
+                .GroupBy(u => u.CreatedAt.Date)
+                .Select(g => new UserGrowthDto
+                {
+                    Date = g.Key,
+                    Count = g.Count()
+                })
+                .OrderBy(g => g.Date)
+                .ToListAsync();
+
+            // Популярные видео
+            var popularVideos = await _context.Videos
+                .Include(v => v.User)
+                .OrderByDescending(v => v.Views)
+                .Take(5)
+                .Select(v => new PopularVideoDto
+                {
+                    Id = v.Id,
+                    Title = v.Title,
+                    AuthorName = v.User.Name,
+                    Views = v.Views,
+                    Likes = v.Likes
+                })
+                .ToListAsync();
+
+            // График активности — единые дневные запросы вместо N+1
+            var viewsByDay = await _context.VideoViews
+                .Where(v => v.ViewedAt >= dateFrom)
+                .GroupBy(v => v.ViewedAt.Date)
+                .Select(g => new { Date = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var uploadsByDay = await _context.Videos
+                .Where(v => v.CreatedAt >= dateFrom)
+                .GroupBy(v => v.CreatedAt.Date)
+                .Select(g => new { Date = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var regsByDay = await _context.Users
+                .Where(u => u.CreatedAt >= dateFrom)
+                .GroupBy(u => u.CreatedAt.Date)
+                .Select(g => new { Date = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var viewsDict = viewsByDay.ToDictionary(x => x.Date, x => x.Count);
+            var uploadsDict = uploadsByDay.ToDictionary(x => x.Date, x => x.Count);
+            var regsDict = regsByDay.ToDictionary(x => x.Date, x => x.Count);
+
+            var days = (int)Math.Ceiling((now - dateFrom).TotalDays);
+            var activityGraph = new List<ActivityGraphDto>();
+            for (int i = 0; i <= days; i++)
+            {
+                var day = dateFrom.Date.AddDays(i);
+
+                activityGraph.Add(new ActivityGraphDto
+                {
+                    Date = day,
+                    Views = viewsDict.TryGetValue(day, out var v) ? v : 0,
+                    Uploads = uploadsDict.TryGetValue(day, out var u) ? u : 0,
+                    Registrations = regsDict.TryGetValue(day, out var r) ? r : 0
+                });
+            }
+
+            // География пользователей (временно пусто, нужно отдельное хранение геоданных)
+            var userGeography = new List<UserGeographyDto>();
+
+            return new PlatformStatsDto
+            {
+                TotalUsers = totalUsers,
+                NewUsers = newUsers,
+                TotalVideos = totalVideos,
+                NewVideos = newVideos,
+                TotalViews = totalViews,
+                NewViews = newViews,
+                TotalLikes = totalLikes,
+                NewLikes = newLikes,
+                UserGrowth = userGrowth.ToArray(),
+                PopularVideos = popularVideos.ToArray(),
+                ActivityGraph = activityGraph.ToArray(),
+                UserGeography = userGeography.ToArray()
+            };
+        }
     }
 
     public async Task<PaginatedResponseDto<AdminActionLogDto>> GetLogsAsync(AdminLogsRequestDto request)

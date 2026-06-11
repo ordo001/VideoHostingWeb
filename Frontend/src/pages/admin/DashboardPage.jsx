@@ -4,7 +4,7 @@ import { useUI } from '../../hooks/useUI';
 import adminService from '../../services/adminService';
 import Button from '../../components/Button';
 import Loader from '../../components/Loader';
-import { LineChart, BarChart, PieChart } from '../../components/charts';
+import { LineChart, PieChart } from '../../components/charts';
 
 const DashboardPage = () => {
   const { showNotification } = useUI();
@@ -14,24 +14,24 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [chartsData, setChartsData] = useState({
     userGrowth: [],
-    viewsGrowth: [], // Данные для роста просмотров
-    videoUploads: [], // Данные для роста загрузки видео
+    viewsGrowth: [],
+    videoUploads: [],
     contentPopularity: []
   });
-  
+
   // Загружаем статистику платформы
-  const [selectedPeriod, setSelectedPeriod] = useState('7d');
-  
+  const [selectedPeriod, setSelectedPeriod] = useState('24h');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const data = await adminService.getPlatformStats(selectedPeriod);
         setStats(data);
-        
+
         // Загружаем последние видео
         const videosData = await adminService.getRecentVideos(5);
         setRecentVideos(videosData || []);
-        
+
         // Подготавливаем данные для графиков
         prepareChartsData(data);
       } catch (err) {
@@ -45,220 +45,130 @@ const DashboardPage = () => {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, [showNotification, selectedPeriod]);
-  
+
   // Функция для подготовки данных для графиков
   const prepareChartsData = (statsData) => {
-    // Определяем количество точек данных на основе выбранного периода
-    const getPeriodDays = (period) => {
-      switch (period) {
-        case '24h': return 24; // Почасовые данные за 24 часа
-        case '7d': return 7; // Дневные данные за 7 дней
-        case '30d': return 30; // Дневные данные за 30 дней
-        case 'all': return 12; // Месячные данные (12 месяцев)
-        default: return 7;
-      }
-    };
-    
-    const periodDays = getPeriodDays(selectedPeriod);
-    const today = new Date();
-    
-    // Функция для генерации метки в зависимости от периода
-    const getLabel = (date, period) => {
-      if (period === '24h') {
-        // Для 24 часов показываем часы
-        const hour = date.getHours();
-        return `${hour}:00`;
-      } else if (period === 'all') {
-        // Для "всё время" показываем месяц и год
-        return date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' });
-      } else if (period === '30d') {
-        // Для 30 дней показываем день и месяц
-        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-      } else {
-        // Для 7 дней показываем день недели
-        // Получаем короткое имя дня недели на русском
-        const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-        return weekdays[date.getDay()];
-      }
-    };
-    
-    // Функция для определения смещения в зависимости от периода
-    const getTimeOffset = (i, period) => {
-      const date = new Date(today);
-      if (period === '24h') {
-        // Для 24 часов смещаем по часам
-        date.setHours(today.getHours() - i);
-        // Установим минуты и секунды в 0 для точного сравнения по часам
-        date.setMinutes(0);
-        date.setSeconds(0);
-        date.setMilliseconds(0);
-        return date;
-      } else if (period === 'all') {
-        // Для "всё времени" смещаем по месяцам
-        date.setMonth(today.getMonth() - i);
-        // Установим день в 1 для точного сравнения по месяцам
-        date.setDate(1);
-        date.setHours(0, 0, 0, 0);
-        return date;
-      } else {
-        // Для остальных периодов смещаем по дням
-        date.setDate(today.getDate() - i);
-        // Установим время в начало дня для точного сравнения по дням
-        date.setHours(0, 0, 0, 0);
-        return date;
-      }
-    };
-    
-    // Вспомогательная функция для нормализации даты из данных
-      const normalizeDate = (dateStr) => {
-          try {
-              let date;
+    const isHourly = selectedPeriod === '24h';
 
-              if (dateStr instanceof Date) {
-                  date = new Date(dateStr);
-              } else if (typeof dateStr === 'string') {
-                  const formatted = dateStr
-                      .replace(' ', 'T')
-                      .replace(/(\+\d{2})(\d{2})$/, '$1:$2');
-
-                  date = new Date(formatted);
-              } else {
-                  date = new Date();
-              }
-
-              // ВРЕМЕННЫЙ ФИКС: отнимаем 1 день
-              date.setDate(date.getDate() + 1);
-
-              return date;
-          } catch (e) {
-              console.warn('Ошибка парсинга даты:', dateStr, e);
-              return new Date();
-          }
-      };
-    
-    // Данные для графика роста пользователей
+    // --- Рост пользователей ---
     const userGrowthData = [];
-    
-// Используем реальные данные из API
     if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
-      // Для "всё времени" агрегируем данные по месяцам
-      if (selectedPeriod === 'all') {
-        const monthlyData = {};
-        
+      if (isHourly) {
+        // Агрегируем данные по часам
+        const hourlyMap = {};
         statsData.userGrowth.forEach(item => {
-          const itemDate = normalizeDate(item.date);
-          const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
-          
-          if (!monthlyData[monthKey]) {
-            monthlyData[monthKey] = {
-              date: new Date(itemDate.getFullYear(), itemDate.getMonth(), 1),
-              count: 0
-            };
-          }
-          
-          monthlyData[monthKey].count += item.count;
+          const d = new Date(item.date);
+          const key = d.toISOString().slice(0, 13); // YYYY-MM-DDTHH
+          hourlyMap[key] = (hourlyMap[key] || 0) + d.count ?? item.count;
         });
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
-        }
-        
-        // Заполняем данные для каждого периода
-        periodPoints.forEach(pointDate => {
-          const label = getLabel(pointDate, selectedPeriod);
-          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
-          
-          const pointData = monthlyData[monthKey];
-          const value = pointData ? pointData.count : 0;
-          
+
+        const now = new Date();
+        for (let i = 23; i >= 0; i--) {
+          const hour = new Date(now.getTime() - i * 3600000);
+          const key = hour.toISOString().slice(0, 13);
+          const entry = Object.entries(hourlyMap).find(([k]) => k === key);
           userGrowthData.push({
-            label,
-            value
+            label: `${hour.getHours()}:00`,
+            value: entry ? entry[1] : 0
           });
-        });
-      } else {
-        // Для остальных периодов
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
         }
-        
-        // Для 24 часов агрегируем данные по часам
-        if (selectedPeriod === '24h') {
-          const hourlyData = {};
-          
-          // Сначала агрегируем все данные по часам
-          statsData.userGrowth.forEach(item => {
-            const itemDate = normalizeDate(item.date);
-            // Создаем ключ для часа
-            const hourKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}-${itemDate.getDate()}-${itemDate.getHours()}`;
-            
-            if (!hourlyData[hourKey]) {
-              hourlyData[hourKey] = {
-                date: new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), itemDate.getHours()),
-                count: 0
-              };
-            }
-            
-            hourlyData[hourKey].count += item.count;
-          });
-          
-          // Заполняем данные для каждого часа в периоде
-          periodPoints.forEach(pointDate => {
-            const label = getLabel(pointDate, selectedPeriod);
-            // Создаем ключ для поиска по часу
-            const hourKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}-${pointDate.getDate()}-${pointDate.getHours()}`;
-            
-            const pointData = hourlyData[hourKey];
-            const value = pointData ? pointData.count : 0;
-            
-            userGrowthData.push({
-              label,
-              value
-            });
-          });
-        } else {
-          // Для дневных данных ищем по дням
-          periodPoints.forEach(pointDate => {
-            const label = getLabel(pointDate, selectedPeriod);
-            
-            const pointDateString = pointDate.toDateString();
-            const pointData = statsData.userGrowth.find(item => {
-              const itemDate = normalizeDate(item.date);
-              return itemDate.toDateString() === pointDateString;
-            });
-            const value = pointData ? pointData.count : 0;
-            
-            userGrowthData.push({
-              label,
-              value
-            });
-          });
+      } else {
+        // Дневные данные — используем как есть, заполняем пустые дни
+        const today = new Date();
+        const days = selectedPeriod === '7d' ? 7 : 30;
+        const dailyMap = {};
+        statsData.userGrowth.forEach(item => {
+          const d = new Date(item.date);
+          const key = d.toDateString();
+          dailyMap[key] = item.count;
+        });
+
+        for (let i = days - 1; i >= 0; i--) {
+          const day = new Date(today);
+          day.setDate(day.getDate() - i);
+          day.setHours(0, 0, 0, 0);
+          const key = day.toDateString();
+          let label;
+          if (selectedPeriod === '7d') {
+            const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            label = weekdays[day.getDay()];
+          } else {
+            label = day.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+          }
+          userGrowthData.push({ label, value: dailyMap[key] || 0 });
         }
       }
     }
-    
-    // Данные для круговой диаграммы популярности контента
-    let contentPopularityData = [];
-    
+
+    // --- График активности (просмотры и загрузки) ---
+    const viewsGrowthData = [];
+    const videoUploadsData = [];
+
+    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
+      if (isHourly) {
+        // Почасовые данные — backend возвращает 24 точки
+        const hourlyMap = {};
+        statsData.activityGraph.forEach(item => {
+          const d = new Date(item.date);
+          const key = d.toISOString().slice(0, 13);
+          hourlyMap[key] = { views: item.views, uploads: item.uploads };
+        });
+
+        const now = new Date();
+        for (let i = 23; i >= 0; i--) {
+          const hour = new Date(now.getTime() - i * 3600000);
+          const key = hour.toISOString().slice(0, 13);
+          const entry = hourlyMap[key];
+          viewsGrowthData.push({
+            label: `${hour.getHours()}:00`,
+            value: entry ? entry.views : 0
+          });
+          videoUploadsData.push({
+            label: `${hour.getHours()}:00`,
+            value: entry ? entry.uploads : 0
+          });
+        }
+      } else {
+        // Дневные данные
+        const today = new Date();
+        const days = selectedPeriod === '7d' ? 7 : 30;
+        const dailyMap = {};
+        statsData.activityGraph.forEach(item => {
+          const d = new Date(item.date);
+          const key = d.toDateString();
+          dailyMap[key] = { views: item.views, uploads: item.uploads };
+        });
+
+        for (let i = days - 1; i >= 0; i--) {
+          const day = new Date(today);
+          day.setDate(day.getDate() - i);
+          day.setHours(0, 0, 0, 0);
+          const key = day.toDateString();
+          let label;
+          if (selectedPeriod === '7d') {
+            const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            label = weekdays[day.getDay()];
+          } else {
+            label = day.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+          }
+          const entry = dailyMap[key];
+          viewsGrowthData.push({ label, value: entry ? entry.views : 0 });
+          videoUploadsData.push({ label, value: entry ? entry.uploads : 0 });
+        }
+      }
+    }
+
+    // --- Популярность контента (круговая диаграмма) ---
+    const contentPopularityData = [];
     if (statsData?.popularVideos && statsData.popularVideos.length > 0) {
-      // Создаем категории на основе популярных видео
       const categories = {};
-      
       statsData.popularVideos.forEach(video => {
-        // Извлекаем категории из названий видео (упрощенная логика)
         let category = 'Другое';
         const title = (video.title || '').toLowerCase();
-        
+
         if (title.includes('музык') || title.includes('music')) {
           category = 'Музыка';
         } else if (title.includes('игр') || title.includes('game')) {
@@ -270,244 +180,24 @@ const DashboardPage = () => {
         } else if (title.includes('развлеч') || title.includes('entert')) {
           category = 'Развлечения';
         }
-        
+
         const views = video.views || 0;
         categories[category] = (categories[category] || 0) + views;
       });
-      
-      // Преобразуем в формат для графика
-      contentPopularityData = Object.entries(categories).map(([label, value]) => ({
-        label,
-        value
-      }));
+
+      Object.entries(categories).forEach(([label, value]) => {
+        contentPopularityData.push({ label, value });
+      });
     }
-    
-    // Данные для графика роста просмотров
-    const viewsGrowthData = [];
-    
-    // Используем реальные данные из activityGraph
-    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      // Для "всё времени" агрегируем данные по месяцам
-      if (selectedPeriod === 'all') {
-        const monthlyData = {};
-        
-        statsData.activityGraph.forEach(item => {
-          const itemDate = normalizeDate(item.date);
-          const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
-          
-          if (!monthlyData[monthKey]) {
-            monthlyData[monthKey] = {
-              date: new Date(itemDate.getFullYear(), itemDate.getMonth(), 1),
-              views: 0
-            };
-          }
-          
-          monthlyData[monthKey].views += item.views;
-        });
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
-        }
-        
-        // Заполняем данные для каждого периода
-        periodPoints.forEach(pointDate => {
-          const label = getLabel(pointDate, selectedPeriod);
-          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
-          
-          const pointData = monthlyData[monthKey];
-          const value = pointData ? pointData.views : 0;
-          
-          viewsGrowthData.push({
-            label,
-            value
-          });
-        });
-      } else {
-        // Для остальных периодов
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
-        }
-        
-        // Для 24 часов агрегируем данные по часам
-        if (selectedPeriod === '24h') {
-          const hourlyData = {};
-          
-          // Сначала агрегируем все данные по часам
-          statsData.activityGraph.forEach(item => {
-            const itemDate = normalizeDate(item.date);
-            // Создаем ключ для часа
-            const hourKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}-${itemDate.getDate()}-${itemDate.getHours()}`;
-            
-            if (!hourlyData[hourKey]) {
-              hourlyData[hourKey] = {
-                date: new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), itemDate.getHours()),
-                views: 0
-              };
-            }
-            
-            hourlyData[hourKey].views += item.views;
-          });
-          
-          // Заполняем данные для каждого часа в периоде
-          periodPoints.forEach(pointDate => {
-            const label = getLabel(pointDate, selectedPeriod);
-            // Создаем ключ для поиска по часу
-            const hourKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}-${pointDate.getDate()}-${pointDate.getHours()}`;
-            
-            const pointData = hourlyData[hourKey];
-            const value = pointData ? pointData.views : 0;
-            
-            viewsGrowthData.push({
-              label,
-              value
-            });
-          });
-        } else {
-          // Для дневных данных ищем по дням
-          periodPoints.forEach(pointDate => {
-            const label = getLabel(pointDate, selectedPeriod);
-            
-            const pointDateString = pointDate.toDateString();
-            const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date);
-              return itemDate.toDateString() === pointDateString;
-            });
-            const value = pointData ? pointData.views : 0;
-            
-            viewsGrowthData.push({
-              label,
-              value
-            });
-          });
-        }
-      }
-    }
-    
-    // Данные для графика роста загрузки видео
-    const videoUploadsData = [];
-    
-    // Используем реальные данные из activityGraph
-    if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
-      // Для "всё времени" агрегируем данные по месяцам
-      if (selectedPeriod === 'all') {
-        const monthlyData = {};
-        
-        statsData.activityGraph.forEach(item => {
-          const itemDate = normalizeDate(item.date);
-          const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
-          
-          if (!monthlyData[monthKey]) {
-            monthlyData[monthKey] = {
-              date: new Date(itemDate.getFullYear(), itemDate.getMonth(), 1),
-              uploads: 0
-            };
-          }
-          
-          monthlyData[monthKey].uploads += item.uploads;
-        });
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
-        }
-        
-        // Заполняем данные для каждого периода
-        periodPoints.forEach(pointDate => {
-          const label = getLabel(pointDate, selectedPeriod);
-          const monthKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}`;
-          
-          const pointData = monthlyData[monthKey];
-          const value = pointData ? pointData.uploads : 0;
-          
-          videoUploadsData.push({
-            label,
-            value
-          });
-        });
-      } else {
-        // Для остальных периодов
-        
-        // Создаем массив всех точек для периода
-        const periodPoints = [];
-        for (let i = periodDays - 1; i >= 0; i--) {
-          const pointDate = getTimeOffset(i, selectedPeriod);
-          periodPoints.push(pointDate);
-        }
-        
-        // Для 24 часов агрегируем данные по часам
-        if (selectedPeriod === '24h') {
-          const hourlyData = {};
-          
-          // Сначала агрегируем все данные по часам
-          statsData.activityGraph.forEach(item => {
-            const itemDate = normalizeDate(item.date);
-            // Создаем ключ для часа
-            const hourKey = `${itemDate.getFullYear()}-${itemDate.getMonth()}-${itemDate.getDate()}-${itemDate.getHours()}`;
-            
-            if (!hourlyData[hourKey]) {
-              hourlyData[hourKey] = {
-                date: new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), itemDate.getHours()),
-                uploads: 0
-              };
-            }
-            
-            hourlyData[hourKey].uploads += item.uploads;
-          });
-          
-          // Заполняем данные для каждого часа в периоде
-          periodPoints.forEach(pointDate => {
-            const label = getLabel(pointDate, selectedPeriod);
-            // Создаем ключ для поиска по часу
-            const hourKey = `${pointDate.getFullYear()}-${pointDate.getMonth()}-${pointDate.getDate()}-${pointDate.getHours()}`;
-            
-            const pointData = hourlyData[hourKey];
-            const value = pointData ? pointData.uploads : 0;
-            
-            videoUploadsData.push({
-              label,
-              value
-            });
-          });
-        } else {
-          // Для дневных данных ищем по дням
-          periodPoints.forEach(pointDate => {
-            const label = getLabel(pointDate, selectedPeriod);
-            
-            const pointDateString = pointDate.toDateString();
-            const pointData = statsData.activityGraph.find(item => {
-              const itemDate = normalizeDate(item.date);
-              return itemDate.toDateString() === pointDateString;
-            });
-            const value = pointData ? pointData.uploads : 0;
-            
-            videoUploadsData.push({
-              label,
-              value
-            });
-          });
-        }
-      }
-    }
-    
-    const chartsData = {
+
+    setChartsData({
       userGrowth: userGrowthData,
-      viewsGrowth: viewsGrowthData, // Данные для роста просмотров
-      videoUploads: videoUploadsData, // Данные для роста загрузки видео
+      viewsGrowth: viewsGrowthData,
+      videoUploads: videoUploadsData,
       contentPopularity: contentPopularityData
-    };
-    
-    setChartsData(chartsData);
+    });
   };
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -515,14 +205,14 @@ const DashboardPage = () => {
       </div>
     );
   }
-  
+
   // Функция для форматирования даты
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = Math.abs(now - date);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
       return 'Сегодня';
     } else if (diffDays === 1) {
@@ -530,10 +220,10 @@ const DashboardPage = () => {
     } else if (diffDays < 7) {
       return `${diffDays} дня(-ей) назад`;
     } else {
-      return date.toLocaleDateString('ru-RU', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric' 
+      return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
       });
     }
   };
@@ -549,7 +239,7 @@ const DashboardPage = () => {
         <h1 className="text-3xl font-bold text-white">Административная панель</h1>
         <p className="text-gray-400 mt-2">Обзор ключевых метрик платформы</p>
       </div>
-      
+
       {/* Карточки статистики */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Карточка пользователей */}
@@ -569,11 +259,11 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newUsers?.toLocaleString() || 0} за сегодня
+              +{stats?.newUsers?.toLocaleString() || 0} за период
             </p>
           </div>
         </div>
-        
+
         {/* Карточка видео */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
           <div className="flex items-center justify-between">
@@ -591,11 +281,11 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newVideos?.toLocaleString() || 0} за сегодня
+              +{stats?.newVideos?.toLocaleString() || 0} за период
             </p>
           </div>
         </div>
-        
+
         {/* Карточка просмотров */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
           <div className="flex items-center justify-between">
@@ -613,11 +303,11 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newViews?.toLocaleString() || 0} за сегодня
+              +{stats?.newViews?.toLocaleString() || 0} за период
             </p>
           </div>
         </div>
-        
+
         {/* Карточка лайков */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
           <div className="flex items-center justify-between">
@@ -635,7 +325,7 @@ const DashboardPage = () => {
           </div>
           <div className="mt-4">
             <p className="text-sm text-green-400">
-              +{stats?.newLikes?.toLocaleString() || 0} за сегодня
+              +{stats?.newLikes?.toLocaleString() || 0} за период
             </p>
           </div>
         </div>
@@ -648,8 +338,8 @@ const DashboardPage = () => {
           <div className="space-y-3">
             {recentVideos && recentVideos.length > 0 ? (
               recentVideos.map((video, index) => (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors duration-200"
                   onClick={() => handleVideoClick(video.id)}
                   role="button"
@@ -664,8 +354,8 @@ const DashboardPage = () => {
                   {/* Превью видео */}
                   <div className="w-20 h-14 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                     {video.thumbnailUrl ? (
-                      <img 
-                        src={`http://localhost:9000/${video.thumbnailUrl}`} 
+                      <img
+                        src={`http://localhost:9000/${video.thumbnailUrl}`}
                         alt={video.title}
                         className="w-full h-full object-cover"
                       />
@@ -675,7 +365,7 @@ const DashboardPage = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Информация о видео */}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-white font-medium text-sm truncate">{video.title}</h3>
@@ -694,37 +384,37 @@ const DashboardPage = () => {
             )}
           </div>
         </div>
-        
+
         {/* Быстрые действия */}
         <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
           <h2 className="text-xl font-bold text-white mb-4">Быстрые действия</h2>
           <div className="grid grid-cols-2 gap-4">
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               className="h-24 flex flex-col items-center justify-center"
               onClick={() => navigate('/admin/users')}
             >
               <span className="text-2xl mb-2">👥</span>
               <span>Пользователи</span>
             </Button>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               className="h-24 flex flex-col items-center justify-center"
               onClick={() => navigate('/admin/videos')}
             >
               <span className="text-2xl mb-2">🎬</span>
               <span>Видео</span>
             </Button>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               className="h-24 flex flex-col items-center justify-center"
-              onClick={() => navigate('/admin/stats')}
+              onClick={() => navigate('/admin')}
             >
               <span className="text-2xl mb-2">📊</span>
               <span>Статистика</span>
             </Button>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               className="h-24 flex flex-col items-center justify-center"
               onClick={() => navigate('/admin/logs')}
             >
@@ -734,8 +424,8 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
-        <br/>
-        <br/>
+      <br/>
+      <br/>
       {/* Графики */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
@@ -759,55 +449,49 @@ const DashboardPage = () => {
             >
               30 дней
             </button>
-            <button
-              onClick={() => setSelectedPeriod('all')}
-              className={`px-4 py-2 rounded-lg text-sm ${selectedPeriod === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}`}
-            >
-              Все время
-            </button>
           </div>
         </div>
 
-          <div className="space-y-6">
-              {/* График роста пользователей */}
-              <div className="w-full">
-                  <LineChart
-                      data={chartsData.userGrowth}
-                      title="Рост пользователей"
-                      color="#3B82F6"
-                      height={300}
-                  />
-              </div>
-
-              {/* График роста просмотров */}
-              <div className="w-full">
-                  <LineChart
-                      data={chartsData.viewsGrowth}
-                      title="Рост просмотров"
-                      color="#10B981"
-                      height={300}
-                  />
-              </div>
-
-              {/* График роста загрузки видео */}
-              <div className="w-full">
-                  <LineChart
-                      data={chartsData.videoUploads}
-                      title="Рост загрузки видео"
-                      color="#F59E0B"
-                      height={300}
-                  />
-              </div>
-
-              {/* Популярность контента */}
-              <div className="w-full">
-                  <PieChart
-                      data={chartsData.contentPopularity}
-                      title="Популярность контента"
-                      height={300}
-                  />
-              </div>
+        <div className="space-y-6">
+          {/* График роста пользователей */}
+          <div className="w-full">
+            <LineChart
+              data={chartsData.userGrowth}
+              title="Рост пользователей"
+              color="#3B82F6"
+              height={300}
+            />
           </div>
+
+          {/* График роста просмотров */}
+          <div className="w-full">
+            <LineChart
+              data={chartsData.viewsGrowth}
+              title="Рост просмотров"
+              color="#10B981"
+              height={300}
+            />
+          </div>
+
+          {/* График роста загрузки видео */}
+          <div className="w-full">
+            <LineChart
+              data={chartsData.videoUploads}
+              title="Рост загрузки видео"
+              color="#F59E0B"
+              height={300}
+            />
+          </div>
+
+          {/* Популярность контента */}
+          <div className="w-full">
+            <PieChart
+              data={chartsData.contentPopularity}
+              title="Популярность контента"
+              height={300}
+            />
+          </div>
+        </div>
      </div>
      </div>
   );
