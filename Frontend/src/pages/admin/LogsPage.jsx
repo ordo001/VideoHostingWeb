@@ -19,9 +19,6 @@ const LogsPage = () => {
   const [filter, setFilter] = useState('All');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [adminId, setAdminId] = useState('');
-  const [debouncedAdminId, setDebouncedAdminId] = useState('');
-  const adminIdTimeoutRef = useRef(null);
 
   // Загружаем логи администраторов
   const fetchLogs = useCallback(async () => {
@@ -36,11 +33,10 @@ const LogsPage = () => {
       const data = await adminService.getAdminLogs({
         page: currentPage,
         pageSize: 20,
-        searchTerm: debouncedSearch,
+        action: debouncedSearch || undefined,
         actionType: filter !== 'All' ? filter : undefined,
-        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : null,
-        dateTo: dateTo ? new Date(dateTo + 'T23:59:59').toISOString() : null,
-        adminId: debouncedAdminId || null
+        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
+        dateTo: dateTo ? new Date(dateTo + 'T23:59:59').toISOString() : undefined
       });
 
       setLogs(data.items || []);
@@ -59,7 +55,7 @@ const LogsPage = () => {
         setFetching(false);
       }
     }
-  }, [currentPage, debouncedSearch, filter, dateFrom, dateTo, debouncedAdminId, showNotification, initialLoading]);
+  }, [currentPage, debouncedSearch, filter, dateFrom, dateTo, showNotification, initialLoading]);
 
   useEffect(() => {
     fetchLogs();
@@ -80,22 +76,6 @@ const LogsPage = () => {
       }
     };
   }, [searchTerm]);
-
-  // Debounce adminId
-  useEffect(() => {
-    if (adminIdTimeoutRef.current) {
-      clearTimeout(adminIdTimeoutRef.current);
-    }
-    adminIdTimeoutRef.current = setTimeout(() => {
-      setDebouncedAdminId(adminId);
-    }, 300);
-
-    return () => {
-      if (adminIdTimeoutRef.current) {
-        clearTimeout(adminIdTimeoutRef.current);
-      }
-    };
-  }, [adminId]);
 
   if (initialLoading) {
     return (
@@ -122,7 +102,10 @@ const LogsPage = () => {
                 type="text"
                 placeholder="Поиск по действию..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full md:w-64 px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
               />
               <div className="absolute right-3 top-2.5 text-gray-400">
@@ -145,17 +128,6 @@ const LogsPage = () => {
               <option value="Video">Видео</option>
               <option value="Admin">Администрирование</option>
             </select>
-
-            <input
-              type="text"
-              value={adminId}
-              onChange={(e) => {
-                setAdminId(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500 w-40"
-              placeholder="ID админа"
-            />
 
             <input
               type="date"
@@ -188,22 +160,19 @@ const LogsPage = () => {
           </div>
         )}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-800">
+          <table className="w-full divide-y divide-gray-800">
             <thead className="bg-gray-800">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-48">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '220px' }}>
                   Администратор
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-48">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '180px' }}>
                   Действие
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-32">
-                  Объект
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '250px' }}>
                   Причина
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-44">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '180px' }}>
                   Дата
                 </th>
               </tr>
@@ -228,11 +197,11 @@ const LogsPage = () => {
                             )}
                         </div>
                       </div>
-                      <div className="ml-4">
+                      <div className="ml-3">
                         <div className="text-sm font-medium text-white">
                           {log.adminName || 'Неизвестный админ'}
                         </div>
-                        <div className="text-sm text-gray-400">
+                        <div className="text-xs text-gray-400">
                           ID: {log.adminId?.toString().substring(0, 8) || 'Неизвестен'}
                         </div>
                       </div>
@@ -242,17 +211,14 @@ const LogsPage = () => {
                     <div className="text-sm font-medium text-white">
                       {log.action}
                     </div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-xs text-gray-400">
                       {log.actionType}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-400">
-                      {log.targetType}: {log.targetId ? log.targetId.toString().substring(0, 8) + '...' : 'Нет'}
+                  <td className="px-6 py-4 text-sm text-gray-400" style={{ maxWidth: '300px' }}>
+                    <div className="line-clamp-2">
+                      {log.reason || log.details || '—'}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">
-                    {log.reason || log.details || '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                     {new Date(log.timestamp).toLocaleString()}

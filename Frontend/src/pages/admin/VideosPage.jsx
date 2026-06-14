@@ -22,7 +22,7 @@ const VideosPage = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
-  const [moderationStatus, setModerationStatus] = useState('Pending');
+  const [moderationStatus, setModerationStatus] = useState('');
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -56,9 +56,9 @@ const VideosPage = () => {
         page: currentPage,
         pageSize: 20,
         searchTerm: debouncedSearch,
-        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
-        dateFrom: dateFrom || null,
-        dateTo: dateTo || null
+        moderationStatus: moderationStatus !== "" ? moderationStatus : "All",
+        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
+        dateTo: dateTo ? new Date(dateTo + 'T23:59:59').toISOString() : undefined
       });
 
       setVideos(data.items || []);
@@ -141,9 +141,9 @@ const VideosPage = () => {
         page: currentPage,
         pageSize: 20,
         searchTerm: debouncedSearch,
-        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
-        dateFrom: dateFrom || null,
-        dateTo: dateTo || null
+        moderationStatus: moderationStatus !== "" ? moderationStatus : "All",
+        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
+        dateTo: dateTo ? new Date(dateTo + 'T23:59:59').toISOString() : undefined
       });
 
       setVideos(data.items || []);
@@ -172,9 +172,9 @@ const VideosPage = () => {
         page: currentPage,
         pageSize: 20,
         searchTerm: debouncedSearch,
-        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
-        dateFrom: dateFrom || null,
-        dateTo: dateTo || null
+        moderationStatus: moderationStatus !== "" ? moderationStatus : "All",
+        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
+        dateTo: dateTo ? new Date(dateTo + 'T23:59:59').toISOString() : undefined
       });
 
       setVideos(data.items || []);
@@ -186,7 +186,7 @@ const VideosPage = () => {
       });
     }
   };
-  
+
   // Обработчик открытия модального окна отклонения
   const handleRejectClick = (video) => {
     setSelectedVideo(video);
@@ -223,9 +223,9 @@ const VideosPage = () => {
         page: currentPage,
         pageSize: 20,
         searchTerm: debouncedSearch,
-        moderationStatus: moderationStatus !== "" ? moderationStatus : null,
-        dateFrom: dateFrom || null,
-        dateTo: dateTo || null
+        moderationStatus: moderationStatus !== "" ? moderationStatus : "All",
+        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
+        dateTo: dateTo ? new Date(dateTo + 'T23:59:59').toISOString() : undefined
       });
 
       setVideos(data.items || []);
