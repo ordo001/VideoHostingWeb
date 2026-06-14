@@ -53,6 +53,12 @@ const DashboardPage = () => {
   const prepareChartsData = (statsData) => {
     const isHourly = selectedPeriod === '24h';
 
+    // Robust date parser — handles dates with or without trailing 'Z'
+    const parseDate = (d) => {
+      const dateStr = typeof d === 'string' ? d : d.toString();
+      return new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+    };
+
     // --- Рост пользователей ---
     // Бэкенд возвращает UTC даты. Форматируем ключи как YYYY-MM-DD HH для почасовых и YYYY-MM-DD для дневных.
     const fmtKey = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}`;
@@ -64,7 +70,7 @@ const DashboardPage = () => {
       const hourlyMap = {};
       if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
         statsData.userGrowth.forEach(item => {
-          const d = new Date(item.date + 'Z');
+          const d = parseDate(item.date);
           hourlyMap[fmtKey(d)] = (hourlyMap[fmtKey(d)] || 0) + item.count;
         });
       }
@@ -85,7 +91,7 @@ const DashboardPage = () => {
       const dailyMap = {};
       if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
         statsData.userGrowth.forEach(item => {
-          const d = new Date(item.date + 'Z');
+          const d = parseDate(item.date);
           dailyMap[fmtDayKey(d)] = item.count;
         });
       }
@@ -112,7 +118,7 @@ const DashboardPage = () => {
       const hourlyMap = {};
       if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
         statsData.activityGraph.forEach(item => {
-          const d = new Date(item.date + 'Z');
+          const d = parseDate(item.date);
           hourlyMap[fmtKey(d)] = { views: item.views, uploads: item.uploads };
         });
       }
@@ -137,7 +143,7 @@ const DashboardPage = () => {
       const dailyMap = {};
       if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
         statsData.activityGraph.forEach(item => {
-          const d = new Date(item.date + 'Z');
+          const d = parseDate(item.date);
           dailyMap[fmtDayKey(d)] = { views: item.views, uploads: item.uploads };
         });
       }

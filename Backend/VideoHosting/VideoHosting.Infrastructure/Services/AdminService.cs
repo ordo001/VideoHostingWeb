@@ -341,7 +341,7 @@ public class AdminService : IAdminService
                 })
                 .Select(g => new UserGrowthDto
                 {
-                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0, DateTimeKind.Utc),
                     Count = g.Count()
                 })
                 .OrderBy(g => g.Date)
@@ -368,7 +368,7 @@ public class AdminService : IAdminService
                 .GroupBy(v => new { v.ViewedAt.Date, v.ViewedAt.Hour })
                 .Select(g => new
                 {
-                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0, DateTimeKind.Utc),
                     Count = g.Count()
                 })
                 .ToListAsync();
@@ -379,7 +379,7 @@ public class AdminService : IAdminService
                 .GroupBy(v => new { v.CreatedAt.Date, v.CreatedAt.Hour })
                 .Select(g => new
                 {
-                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0, DateTimeKind.Utc),
                     Count = g.Count()
                 })
                 .ToListAsync();
@@ -390,7 +390,7 @@ public class AdminService : IAdminService
                 .GroupBy(u => new { u.CreatedAt.Date, u.CreatedAt.Hour })
                 .Select(g => new
                 {
-                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0),
+                    Date = new DateTime(g.Key.Date.Year, g.Key.Date.Month, g.Key.Date.Day, g.Key.Hour, 0, 0, DateTimeKind.Utc),
                     Count = g.Count()
                 })
                 .ToListAsync();
@@ -404,7 +404,7 @@ public class AdminService : IAdminService
             for (int i = 23; i >= 0; i--)
             {
                 var hour = now.AddHours(-i);
-                var key = new DateTime(hour.Year, hour.Month, hour.Day, hour.Hour, 0, 0);
+                var key = new DateTime(hour.Year, hour.Month, hour.Day, hour.Hour, 0, 0, DateTimeKind.Utc);
 
                 activityGraph.Add(new ActivityGraphDto
                 {
@@ -463,24 +463,28 @@ public class AdminService : IAdminService
                 })
                 .ToListAsync();
 
-            // График активности — единые дневные запросы вместо N+1
-            var viewsByDay = await _context.VideoViews
+            // График активности — единые дневные запросы
+            // EF Core/Npgsql возвращает DateTime с Kind=Unspecified, поэтому нормализуем после материализации
+            var viewsByDayRaw = await _context.VideoViews
                 .Where(v => v.ViewedAt >= dateFrom)
                 .GroupBy(v => v.ViewedAt.Date)
                 .Select(g => new { Date = g.Key, Count = g.Count() })
                 .ToListAsync();
+            var viewsByDay = viewsByDayRaw.Select(v => (Date: DateTime.SpecifyKind(v.Date, DateTimeKind.Utc), v.Count)).ToList();
 
-            var uploadsByDay = await _context.Videos
+            var uploadsByDayRaw = await _context.Videos
                 .Where(v => v.CreatedAt >= dateFrom)
                 .GroupBy(v => v.CreatedAt.Date)
                 .Select(g => new { Date = g.Key, Count = g.Count() })
                 .ToListAsync();
+            var uploadsByDay = uploadsByDayRaw.Select(v => (Date: DateTime.SpecifyKind(v.Date, DateTimeKind.Utc), v.Count)).ToList();
 
-            var regsByDay = await _context.Users
+            var regsByDayRaw = await _context.Users
                 .Where(u => u.CreatedAt >= dateFrom)
                 .GroupBy(u => u.CreatedAt.Date)
                 .Select(g => new { Date = g.Key, Count = g.Count() })
                 .ToListAsync();
+            var regsByDay = regsByDayRaw.Select(v => (Date: DateTime.SpecifyKind(v.Date, DateTimeKind.Utc), v.Count)).ToList();
 
             var viewsDict = viewsByDay.ToDictionary(x => x.Date, x => x.Count);
             var uploadsDict = uploadsByDay.ToDictionary(x => x.Date, x => x.Count);
@@ -490,7 +494,7 @@ public class AdminService : IAdminService
             var activityGraph = new List<ActivityGraphDto>();
             for (int i = 0; i <= days; i++)
             {
-                var day = dateFrom.Date.AddDays(i);
+                var day = new DateTime(dateFrom.Date.AddDays(i).Ticks, DateTimeKind.Utc);
 
                 activityGraph.Add(new ActivityGraphDto
                 {
