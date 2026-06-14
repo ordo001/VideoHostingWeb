@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUI } from '../../hooks/useUI';
 import adminService from '../../services/adminService';
@@ -9,10 +9,13 @@ import Modal from '../../components/Modal';
 const VideosPage = () => {
   const navigate = useNavigate();
   const { showNotification } = useUI();
-  
+
   const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimeoutRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -40,36 +43,61 @@ const VideosPage = () => {
   };
   
   // Загружаем список видео для модерации
-  useEffect(() => {
-    const fetchVideos = async () => {
-      setLoading(true);
-      
-      try {
-        const data = await adminService.getVideosForModeration({
+  const fetchVideos = useCallback(async () => {
+    const isLoading = initialLoading;
+    if (isLoading) {
+      setInitialLoading(true);
+    } else {
+      setFetching(true);
+    }
+
+    try {
+      const data = await adminService.getVideosForModeration({
         page: currentPage,
         pageSize: 20,
-        searchTerm: searchTerm,
+        searchTerm: debouncedSearch,
         moderationStatus: moderationStatus !== "" ? moderationStatus : null,
         dateFrom: dateFrom || null,
         dateTo: dateTo || null
       });
-        
-        setVideos(data.items || []);
-        setTotalPages(data.totalPages || 1);
-        setTotalCount(data.totalItems || 0);
-      } catch (err) {
-        showNotification({
-          type: 'error',
-          title: 'Ошибка загрузки',
-          message: err.message
-        });
-      } finally {
-        setLoading(false);
+
+      setVideos(data.items || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalCount(data.totalItems || 0);
+    } catch (err) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка загрузки',
+        message: err.message
+      });
+    } finally {
+      if (isLoading) {
+        setInitialLoading(false);
+      } else {
+        setFetching(false);
+      }
+    }
+  }, [currentPage, debouncedSearch, moderationStatus, dateFrom, dateTo, showNotification, initialLoading]);
+
+  useEffect(() => {
+    fetchVideos();
+  }, [fetchVideos]);
+
+  // Debounce search term
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
       }
     };
-    
-    fetchVideos();
-  }, [currentPage, searchTerm, moderationStatus, dateFrom, dateTo, showNotification]);
+  }, [searchTerm]);
   
   // Обработчик поиска
   const handleSearch = (e) => {
@@ -112,12 +140,12 @@ const VideosPage = () => {
       const data = await adminService.getVideosForModeration({
         page: currentPage,
         pageSize: 20,
-        searchTerm: searchTerm,
+        searchTerm: debouncedSearch,
         moderationStatus: moderationStatus !== "" ? moderationStatus : null,
         dateFrom: dateFrom || null,
         dateTo: dateTo || null
       });
-      
+
       setVideos(data.items || []);
     } catch (err) {
       showNotification({
@@ -127,28 +155,28 @@ const VideosPage = () => {
       });
     }
   };
-  
+
   // Обработчик одобрения видео
   const handleApproveVideo = async (videoId) => {
     try {
       await adminService.approveVideo(videoId, 'Видео одобрено');
-      
+
       showNotification({
         type: 'success',
         title: 'Успех',
         message: 'Видео успешно одобрено'
       });
-      
+
       // Обновляем список видео
       const data = await adminService.getVideosForModeration({
         page: currentPage,
         pageSize: 20,
-        searchTerm: searchTerm,
+        searchTerm: debouncedSearch,
         moderationStatus: moderationStatus !== "" ? moderationStatus : null,
         dateFrom: dateFrom || null,
         dateTo: dateTo || null
       });
-      
+
       setVideos(data.items || []);
     } catch (err) {
       showNotification({
@@ -194,12 +222,12 @@ const VideosPage = () => {
       const data = await adminService.getVideosForModeration({
         page: currentPage,
         pageSize: 20,
-        searchTerm: searchTerm,
+        searchTerm: debouncedSearch,
         moderationStatus: moderationStatus !== "" ? moderationStatus : null,
         dateFrom: dateFrom || null,
         dateTo: dateTo || null
       });
-      
+
       setVideos(data.items || []);
     } catch (err) {
       showNotification({
@@ -209,8 +237,8 @@ const VideosPage = () => {
       });
     }
   };
-  
-  if (loading) {
+
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader size="lg" />
@@ -285,7 +313,12 @@ const VideosPage = () => {
       </div>
       
       {/* Таблица видео */}
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+      <div className="relative bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+        {fetching && (
+          <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-10 rounded-2xl">
+            <Loader size="md" />
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-800">
             <thead className="bg-gray-800">

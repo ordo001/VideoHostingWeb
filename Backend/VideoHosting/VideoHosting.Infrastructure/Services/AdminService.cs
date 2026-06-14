@@ -569,6 +569,7 @@ public class AdminService : IAdminService
                 ActionType = l.TargetType,
                 TargetType = l.TargetType,
                 TargetId = l.TargetId,
+                Reason = l.Reason,
                 Details = l.Details,
                 IpAddress = l.IpAddress ?? "",
                 UserAgent = l.UserAgent ?? "",
