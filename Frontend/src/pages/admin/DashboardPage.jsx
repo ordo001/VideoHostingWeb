@@ -54,27 +54,29 @@ const DashboardPage = () => {
     const isHourly = selectedPeriod === '24h';
 
     // --- Рост пользователей ---
-    // Бэкенд группирует по UTC дате, поэтому сопоставляем через YYYY-MM-DD строки
+    // Бэкенд возвращает UTC даты. Форматируем ключи как YYYY-MM-DD HH для почасовых и YYYY-MM-DD для дневных.
+    const fmtKey = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}`;
+    const fmtDayKey = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
     const userGrowthData = [];
 
     if (isHourly) {
       const hourlyMap = {};
       if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
         statsData.userGrowth.forEach(item => {
-          const d = new Date(item.date);
-          // Бэкенд возвращает UTC часы, используем UTC ключ
-          const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}`;
-          hourlyMap[key] = (hourlyMap[key] || 0) + item.count;
+          const d = new Date(item.date + 'Z');
+          hourlyMap[fmtKey(d)] = (hourlyMap[fmtKey(d)] || 0) + item.count;
         });
       }
 
+      // Идём назад по 24 шагам, каждый шаг — 1 час. Дата может смениться, поэтому вычисляем её динамически.
       const now = new Date();
       for (let i = 23; i >= 0; i--) {
-        const h = (now.getUTCHours() - i + 24) % 24;
-        const key = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')} ${String(h).padStart(2, '0')}`;
+        const hourMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours() - i);
+        const hour = new Date(hourMs);
         userGrowthData.push({
-          label: `${String(h).padStart(2, '0')}:00`,
-          value: hourlyMap[key] || 0
+          label: `${String(hour.getUTCHours()).padStart(2, '0')}:00`,
+          value: hourlyMap[fmtKey(hour)] || 0
         });
       }
     } else {
@@ -83,16 +85,14 @@ const DashboardPage = () => {
       const dailyMap = {};
       if (statsData?.userGrowth && statsData.userGrowth.length > 0) {
         statsData.userGrowth.forEach(item => {
-          const d = new Date(item.date);
-          // UTC ключ для данных бэкенда
-          const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-          dailyMap[key] = item.count;
+          const d = new Date(item.date + 'Z');
+          dailyMap[fmtDayKey(d)] = item.count;
         });
+      }
 
       for (let i = days - 1; i >= 0; i--) {
         const dayMs = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i);
         const day = new Date(dayMs);
-        const key = `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(2, '0')}-${String(day.getUTCDate()).padStart(2, '0')}`;
         let label;
         if (selectedPeriod === '7d') {
           const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -100,7 +100,7 @@ const DashboardPage = () => {
         } else {
           label = `${String(day.getUTCDate()).padStart(2, '0')}.${String(day.getUTCMonth() + 1).padStart(2, '0')}`;
         }
-        userGrowthData.push({ label, value: dailyMap[key] || 0 });
+        userGrowthData.push({ label, value: dailyMap[fmtDayKey(day)] || 0 });
       }
     }
 
@@ -112,23 +112,22 @@ const DashboardPage = () => {
       const hourlyMap = {};
       if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
         statsData.activityGraph.forEach(item => {
-          const d = new Date(item.date);
-          const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}`;
-          hourlyMap[key] = { views: item.views, uploads: item.uploads };
+          const d = new Date(item.date + 'Z');
+          hourlyMap[fmtKey(d)] = { views: item.views, uploads: item.uploads };
         });
       }
 
       const now = new Date();
       for (let i = 23; i >= 0; i--) {
-        const h = (now.getUTCHours() - i + 24) % 24;
-        const key = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')} ${String(h).padStart(2, '0')}`;
-        const entry = hourlyMap[key];
+        const hourMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours() - i);
+        const hour = new Date(hourMs);
+        const entry = hourlyMap[fmtKey(hour)];
         viewsGrowthData.push({
-          label: `${String(h).padStart(2, '0')}:00`,
+          label: `${String(hour.getUTCHours()).padStart(2, '0')}:00`,
           value: entry ? entry.views : 0
         });
         videoUploadsData.push({
-          label: `${String(h).padStart(2, '0')}:00`,
+          label: `${String(hour.getUTCHours()).padStart(2, '0')}:00`,
           value: entry ? entry.uploads : 0
         });
       }
@@ -138,16 +137,14 @@ const DashboardPage = () => {
       const dailyMap = {};
       if (statsData?.activityGraph && statsData.activityGraph.length > 0) {
         statsData.activityGraph.forEach(item => {
-          const d = new Date(item.date);
-          const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-          dailyMap[key] = { views: item.views, uploads: item.uploads };
+          const d = new Date(item.date + 'Z');
+          dailyMap[fmtDayKey(d)] = { views: item.views, uploads: item.uploads };
         });
       }
 
       for (let i = days - 1; i >= 0; i--) {
         const dayMs = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i);
         const day = new Date(dayMs);
-        const key = `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(2, '0')}-${String(day.getUTCDate()).padStart(2, '0')}`;
         let label;
         if (selectedPeriod === '7d') {
           const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -155,7 +152,7 @@ const DashboardPage = () => {
         } else {
           label = `${String(day.getUTCDate()).padStart(2, '0')}.${String(day.getUTCMonth() + 1).padStart(2, '0')}`;
         }
-        const entry = dailyMap[key];
+        const entry = dailyMap[fmtDayKey(day)];
         viewsGrowthData.push({ label, value: entry ? entry.views : 0 });
         videoUploadsData.push({ label, value: entry ? entry.uploads : 0 });
       }
