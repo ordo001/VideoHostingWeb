@@ -103,7 +103,7 @@ function App() {
                   
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {recommendedVideos && recommendedVideos.length > 0 ? (
-                      (showAllRecommended ? recommendedVideos : recommendedVideos.slice(0, 10)).map(video => (
+                      (showAllRecommended ? recommendedVideos : recommendedVideos.slice(0, 15)).map(video => (
                         <VideoCard
                           thumbnail={video.thumbnail_url}
                           key={video.id} 
@@ -123,7 +123,7 @@ function App() {
                   </div>
                 </section>
                 
-                <section className="mb-12">
+                {/*<section className="mb-12">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold">Популярные видео</h2>
                     <Button 
@@ -155,7 +155,7 @@ function App() {
                       </div>
                     )}
                   </div>
-                </section>
+                </section>*/}
               </div>
             } />
             

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useUI } from '../../hooks/useUI';
 import adminService from '../../services/adminService';
 import Button from '../../components/Button';
@@ -6,65 +6,85 @@ import Loader from '../../components/Loader';
 
 const LogsPage = () => {
   const { showNotification } = useUI();
-  
+
   const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimeoutRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [filter, setFilter] = useState('All'); // 'All', 'User', 'Video', 'Admin'
+  const [filter, setFilter] = useState('All');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [adminId, setAdminId] = useState('');
-  
+
   // Загружаем логи администраторов
+  const fetchLogs = useCallback(async () => {
+    const isLoading = initialLoading;
+    if (isLoading) {
+      setInitialLoading(true);
+    } else {
+      setFetching(true);
+    }
+
+    try {
+      const data = await adminService.getAdminLogs({
+        page: currentPage,
+        pageSize: 20,
+        action: debouncedSearch || undefined,
+        actionType: filter !== 'All' ? filter : undefined,
+        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
+        dateTo: dateTo ? new Date(dateTo + 'T23:59:59').toISOString() : undefined
+      });
+
+      setLogs(data.items || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalCount(data.totalItems || 0);
+    } catch (err) {
+      showNotification({
+        type: 'error',
+        title: 'Ошибка загрузки',
+        message: err.message
+      });
+    } finally {
+      if (isLoading) {
+        setInitialLoading(false);
+      } else {
+        setFetching(false);
+      }
+    }
+  }, [currentPage, debouncedSearch, filter, dateFrom, dateTo, showNotification, initialLoading]);
+
   useEffect(() => {
-    const fetchLogs = async () => {
-      setLoading(true);
-      
-      try {
-        const data = await adminService.getAdminLogs({
-          page: currentPage,
-          pageSize: 20,
-          searchTerm: searchTerm,
-          actionType: filter !== 'All' ? filter : undefined,
-          dateFrom: dateFrom || null,
-          dateTo: dateTo || null,
-          adminId: adminId || null
-        });
-        
-        setLogs(data.items || []);
-        setTotalPages(data.totalPages || 1);
-        setTotalCount(data.totalItems || 0);
-      } catch (err) {
-        showNotification({
-          type: 'error',
-          title: 'Ошибка загрузки',
-          message: err.message
-        });
-      } finally {
-        setLoading(false);
+    fetchLogs();
+  }, [fetchLogs]);
+
+  // Debounce search term
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
       }
     };
-    
-    fetchLogs();
-  }, [currentPage, searchTerm, filter, dateFrom, dateTo, adminId, showNotification]);
-  
-  // Обработчик поиска
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    setCurrentPage(1);
-  };
-  
-  if (loading) {
+  }, [searchTerm]);
+
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader size="lg" />
       </div>
     );
   }
-  
+
   return (
     <div>
       <div className="mb-8">
@@ -75,14 +95,17 @@ const LogsPage = () => {
               Всего записей: {totalCount.toLocaleString()}
             </p>
           </div>
-          
+
           <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Поиск по действию..."
                 value={searchTerm}
-                onChange={handleSearch}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full md:w-64 px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500"
               />
               <div className="absolute right-3 top-2.5 text-gray-400">
@@ -91,7 +114,7 @@ const LogsPage = () => {
                 </svg>
               </div>
             </div>
-            
+
             <select
               value={filter}
               onChange={(e) => {
@@ -105,18 +128,7 @@ const LogsPage = () => {
               <option value="Video">Видео</option>
               <option value="Admin">Администрирование</option>
             </select>
-            
-            <input
-              type="text"
-              value={adminId}
-              onChange={(e) => {
-                setAdminId(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white placeholder-gray-500 w-40"
-              placeholder="ID админа"
-            />
-            
+
             <input
               type="date"
               value={dateFrom}
@@ -125,9 +137,8 @@ const LogsPage = () => {
                 setCurrentPage(1);
               }}
               className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
-              placeholder="Дата от"
             />
-            
+
             <input
               type="date"
               value={dateTo}
@@ -136,32 +147,33 @@ const LogsPage = () => {
                 setCurrentPage(1);
               }}
               className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-white"
-              placeholder="Дата до"
             />
           </div>
         </div>
       </div>
-      
+
       {/* Таблица логов */}
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+      <div className="relative bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+        {fetching && (
+          <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-10 rounded-2xl">
+            <Loader size="md" />
+          </div>
+        )}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-800">
+          <table className="w-full divide-y divide-gray-800">
             <thead className="bg-gray-800">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '220px' }}>
                   Администратор
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '180px' }}>
                   Действие
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Объект
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '250px' }}>
+                  Причина
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ minWidth: '180px' }}>
                   Дата
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  IP адрес
                 </th>
               </tr>
             </thead>
@@ -185,11 +197,11 @@ const LogsPage = () => {
                             )}
                         </div>
                       </div>
-                      <div className="ml-4">
+                      <div className="ml-3">
                         <div className="text-sm font-medium text-white">
                           {log.adminName || 'Неизвестный админ'}
                         </div>
-                        <div className="text-sm text-gray-400">
+                        <div className="text-xs text-gray-400">
                           ID: {log.adminId?.toString().substring(0, 8) || 'Неизвестен'}
                         </div>
                       </div>
@@ -199,32 +211,24 @@ const LogsPage = () => {
                     <div className="text-sm font-medium text-white">
                       {log.action}
                     </div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-xs text-gray-400">
                       {log.actionType}
                     </div>
-                    {log.details && (
-                      <div className="text-sm text-gray-400">
-                        {log.details}
-                      </div>
-                    )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-400">
-                      {log.targetType}: {log.targetId ? log.targetId.toString().substring(0, 8) + '...' : 'Нет'}
+                  <td className="px-6 py-4 text-sm text-gray-400" style={{ maxWidth: '300px' }}>
+                    <div className="line-clamp-2">
+                      {log.reason || log.details || '—'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                     {new Date(log.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {log.ipAddress}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        
+
         {/* Пагинация */}
         {totalPages > 1 && (
           <div className="bg-gray-900 px-6 py-3 flex items-center justify-between border-t border-gray-800">

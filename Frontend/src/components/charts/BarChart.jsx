@@ -14,6 +14,7 @@ const BarChart = ({ data, title, colors = ['#4F46E5', '#10B981'], height = 300 }
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     
     // Очищаем canvas

@@ -9,6 +9,7 @@ public class AdminActionLogDto
     public string ActionType { get; set; } = string.Empty;
     public string TargetType { get; set; } = string.Empty;
     public Guid? TargetId { get; set; }
+    public string? Reason { get; set; }
     public string? Details { get; set; }
     public string IpAddress { get; set; } = string.Empty;
     public string UserAgent { get; set; } = string.Empty;
