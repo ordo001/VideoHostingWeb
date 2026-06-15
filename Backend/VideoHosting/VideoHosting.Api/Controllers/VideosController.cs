@@ -95,6 +95,33 @@ public class VideosController : ControllerBase
     }
 
     /// <summary>
+    /// Поиск видео по названию
+    /// </summary>
+    /// <param name="q">Поисковый запрос</param>
+    /// <param name="limit">Максимальное количество результатов (по умолчанию 5)</param>
+    /// <returns>Список найденных видео</returns>
+    [HttpGet("search")]
+    public async Task<ActionResult<IEnumerable<VideoSearchResultDto>>> SearchVideos(
+        [FromQuery] string q,
+        [FromQuery] int limit = 5)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return Ok(new List<VideoSearchResultDto>());
+            }
+
+            var results = await _videoService.SearchVideosAsync(q, limit);
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = new { message = "Произошла внутренняя ошибка сервера" } });
+        }
+    }
+
+    /// <summary>
     /// Получение списка видео с фильтрацией и пагинацией
     /// </summary>
     /// <param name="request">Параметры запроса списка видео</param>

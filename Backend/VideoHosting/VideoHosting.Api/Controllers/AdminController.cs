@@ -220,6 +220,42 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
+    /// Получение видео для просмотра администратором (любого статуса модерации)
+    /// </summary>
+    /// <param name="videoId">ID видео</param>
+    /// <returns>Информация о видео</returns>
+    [HttpGet("videos/{videoId}/view")]
+    public async Task<ActionResult<VideoDto>> ViewVideo(Guid videoId)
+    {
+        try
+        {
+            var video = await _videoService.GetVideoByIdAsync(videoId);
+            if (video == null)
+            {
+                return NotFound(new ApiResponseDto<VideoDto>
+                {
+                    Success = false,
+                    Error = "Видео не найдено"
+                });
+            }
+
+            return Ok(new ApiResponseDto<VideoDto>
+            {
+                Success = true,
+                Data = video
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponseDto<VideoDto>
+            {
+                Success = false,
+                Error = "Произошла внутренняя ошибка сервера"
+            });
+        }
+    }
+
+    /// <summary>
     /// Получение списка видео для модерации
     /// </summary>
     /// <param name="request">Параметры запроса списка видео</param>

@@ -26,4 +26,7 @@ public interface IVideoService
     
     // Processing status
     Task<VideoProcessingStatusDto> GetVideoProcessingStatusAsync(Guid videoId);
+
+    // Search
+    Task<IEnumerable<VideoSearchResultDto>> SearchVideosAsync(string searchTerm, int limit = 5);
 }

@@ -164,6 +164,7 @@ public class VideoService : IVideoService
             Likes = video.Likes,
             Dislikes = video.Dislikes,
             Status = video.Status,
+            ModerationStatus = video.ModerationStatus.ToString(),
             CreatedAt = video.CreatedAt,
             UpdatedAt = video.UpdatedAt,
             IsLiked = false,  // По умолчанию, нужно будет заполнить в контроллере
@@ -393,5 +394,25 @@ public class VideoService : IVideoService
         };
         
         await _videoViewRepository.CreateAsync(videoView);
+    }
+
+    public async Task<IEnumerable<VideoSearchResultDto>> SearchVideosAsync(string searchTerm, int limit = 5)
+    {
+        var videos = await _videoRepository.GetAllAsync();
+
+        var results = videos
+            .Where(v => v.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(v => v.CreatedAt)
+            .Take(limit)
+            .Select(v => new VideoSearchResultDto
+            {
+                Id = v.Id,
+                Title = v.Title,
+                ThumbnailUrl = v.ThumbnailUrl,
+                Duration = v.Duration
+            })
+            .ToList();
+
+        return results;
     }
 }

@@ -225,23 +225,35 @@ export const videoService = {
   // Получение популярных видео за последние 7 дней
   getPopularVideos: async (params = {}) => {
     try {
-      const response = await videoApiClient.get('/videos/popular', { 
+      const response = await videoApiClient.get('/videos/popular', {
         params: {
           days: 7, // Видео за последние 7 дней
           sortBy: 'views', // Сортировка по просмотрам
           ...params
         }
       });
-      
+
       // Адаптация к формату ответа бэкенда ApiResponse<T>
       const data = handleApiResponse(response.data);
-      
+
       // Возвращаем адаптированные данные
-      return Array.isArray(data) ? { videos: adaptVideosList(data) } : 
+      return Array.isArray(data) ? { videos: adaptVideosList(data) } :
              Array.isArray(data?.data) ? { videos: adaptVideosList(data.data) } :
              { videos: adaptVideosList(data?.videos || data || []) };
     } catch (error) {
       throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка получения популярных видео');
+    }
+  },
+
+  // Поиск видео по названию
+  searchVideos: async (query, limit = 5) => {
+    try {
+      const response = await videoApiClient.get('/videos/search', {
+        params: { q: query, limit }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.response?.data?.error?.message || 'Ошибка поиска видео');
     }
   },
 };
