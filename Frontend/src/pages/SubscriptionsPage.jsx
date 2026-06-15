@@ -77,7 +77,7 @@ const SubscriptionsPage = () => {
                   key={channel.id}
                   id={channel.id}
                   name={channel.name}
-                  avatarUrl={`${BASE_URL}/${channel}`}
+                  avatarUrl={`${BASE_URL}/${channel.avatar}`}
                   subscribersCount={channel.subscribers_count}
                   videosCount={channel.videos_count}
                 />
