@@ -24,6 +24,9 @@ public class VideoDto
     
     [JsonPropertyName("processing_status")]
     public string Status { get; set; } = "Processing";
+
+    [JsonPropertyName("moderation_status")]
+    public string ModerationStatus { get; set; } = "Pending";
     
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

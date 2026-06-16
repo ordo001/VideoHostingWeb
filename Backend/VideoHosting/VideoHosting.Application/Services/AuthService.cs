@@ -83,6 +83,31 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Неверный email или пароль");
         }
 
+        // Проверка, что пользователь не забанен
+        if (user.IsBanned)
+        {
+            // Если бан был временным и время истекло — автоматически разбаниваем
+            if (user.BannedUntil.HasValue && user.BannedUntil.Value < DateTime.UtcNow)
+            {
+                user.IsBanned = false;
+                user.BannedUntil = null;
+                user.BanReason = null;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _userRepository.UpdateAsync(user);
+            }
+            else
+            {
+                var banInfo = user.BannedUntil.HasValue
+                    ? $"Ваш аккаунт заблокирован до {user.BannedUntil.Value:dd.MM.yyyy HH:mm}"
+                    : "Ваш аккаунт заблокирован навсегда";
+                throw new UnauthorizedAccessException(banInfo);
+            }
+        }
+
+        // Обновление времени последнего входа
+        user.LastLoginAt = DateTime.UtcNow;
+        await _userRepository.UpdateAsync(user);
+
         // Генерация токена
         var token = _tokenGenerator.GenerateToken(user);
 
