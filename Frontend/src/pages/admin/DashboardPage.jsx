@@ -485,15 +485,6 @@ const DashboardPage = () => {
               height={300}
             />
           </div>
-
-          {/* Популярность контента */}
-          <div className="w-full">
-            <PieChart
-              data={chartsData.contentPopularity}
-              title="Популярность контента"
-              height={300}
-            />
-          </div>
         </div>
      </div>
      </div>

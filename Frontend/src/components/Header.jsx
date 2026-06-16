@@ -235,21 +235,22 @@ const Header = () => {
                     </button>
                     
                     {isDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg py-1 z-50 border border-gray-700">
-                        <Link 
-                          to={`/channel/${user?.id || 'me'}`}
-                          className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200"
-                          onClick={() => setIsDropdownOpen(false)}
-                        >
-                          Мой канал
-                        </Link>
-                        <button
-                          onClick={handleLogout}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200"
-                        >
-                          Выйти
-                        </button>
-                      </div>
+                        <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg py-1 z-50 border border-gray-700">
+                            <Link
+                                to={`/channel/${user?.id || 'me'}`}
+                                onClick={() => setIsDropdownOpen(false)}
+                                className="w-full flex justify-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200"
+                            >
+                                Мой канал
+                            </Link>
+
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex justify-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200"
+                            >
+                                Выйти
+                            </button>
+                        </div>
                     )}
                   </div>
                 </>
